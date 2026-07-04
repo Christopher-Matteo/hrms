@@ -1,8 +1,44 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import authRouter from "./auth";
+import branchesRouter from "./branches";
+import departmentsRouter from "./departments";
+import shiftsRouter from "./shifts";
+import weeklyOffRouter from "./weeklyOff";
+import employeesRouter from "./employees";
+import attendanceRouter from "./attendance";
+import leavesRouter from "./leaves";
+import advancesRouter from "./advances";
+import continueDutiesRouter from "./continueDuties";
+import payrollRouter from "./payroll";
+import announcementsRouter from "./announcements";
+import notificationsRouter from "./notifications";
+import holidaysRouter from "./holidays";
+import settingsRouter from "./settings";
+import auditLogsRouter from "./auditLogs";
+import dashboardRouter from "./dashboard";
+import reportsRouter from "./reports";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(authRouter);
+router.use(branchesRouter);
+router.use(departmentsRouter);
+router.use(shiftsRouter);
+router.use(weeklyOffRouter);
+router.use(employeesRouter);
+router.use(attendanceRouter);
+router.use(leavesRouter);
+router.use(advancesRouter);
+router.use(continueDutiesRouter);
+router.use(payrollRouter);
+router.use(announcementsRouter);
+router.use(notificationsRouter);
+router.use(holidaysRouter);
+router.use(settingsRouter);
+router.use(auditLogsRouter);
+router.use(dashboardRouter);
+router.use(reportsRouter);
 
 export default router;

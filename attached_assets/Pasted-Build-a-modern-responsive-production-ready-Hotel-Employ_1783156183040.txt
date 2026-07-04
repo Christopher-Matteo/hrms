@@ -1,0 +1,807 @@
+Build a modern, responsive, production-ready Hotel Employee Management System (HRMS & Payroll) for Red Fox Hotel.
+
+The application should have a premium UI similar to Linear, Notion, Stripe Dashboard, and modern SaaS applications.
+
+Theme:
+- Clean
+- Minimal
+- Professional
+- Fast
+- Responsive
+- Light & Dark Mode
+- Smooth animations
+- Glassmorphism where appropriate
+- Rounded corners
+- Beautiful cards
+- Modern tables
+- Searchable interfaces
+
+Use a component-based architecture.
+
+=========================================
+USER ROLES
+=========================================
+
+Create separate login access for:
+
+1. Super Admin
+2. HR Manager
+3. Branch Manager
+4. Employee
+
+Permissions:
+
+Super Admin
+- Full access
+- Manage branches
+- Manage users
+- Manage payroll
+- Manage settings
+
+HR Manager
+- Employee management
+- Attendance
+- Payroll
+- Leave approval
+- Reports
+
+Branch Manager
+- View only assigned branch
+- Mark attendance
+- Approve leave
+- View reports
+
+Employee
+- View attendance
+- View salary
+- Download payslip
+- Apply leave
+- View announcements
+
+=========================================
+DASHBOARD
+=========================================
+
+Beautiful dashboard showing
+
+Total Employees
+
+Present Today
+
+Absent Today
+
+Weekly Off Today
+
+Leave Today
+
+Late Arrivals
+
+Overtime Employees
+
+Branches
+
+Monthly Payroll
+
+Upcoming Birthdays
+
+New Employees
+
+Salary Expense
+
+Recent Activities
+
+Quick Actions
+
+Charts
+
+Attendance Trend
+
+Payroll Trend
+
+Department Distribution
+
+=========================================
+BRANCH MANAGEMENT
+=========================================
+
+Multiple branches supported.
+
+Each employee belongs to one branch.
+
+Example:
+
+Red Fox Chennai
+
+Red Fox Madurai
+
+Red Fox Coimbatore
+
+Branch Details
+
+Branch Name
+
+Address
+
+Manager
+
+Phone
+
+Email
+
+Employee Count
+
+Payroll Cost
+
+=========================================
+EMPLOYEE MANAGEMENT
+=========================================
+
+Employee Profile contains
+
+Employee ID
+
+Photo
+
+Full Name
+
+Gender
+
+DOB
+
+Phone
+
+Email
+
+Address
+
+Emergency Contact
+
+Department
+
+Designation
+
+Branch
+
+Joining Date
+
+Employment Type
+
+Status
+
+Salary
+
+Bank Details
+
+UPI
+
+PAN
+
+Aadhaar
+
+Documents
+
+Weekly Off Policy
+
+Shift
+
+=========================================
+DEPARTMENTS
+=========================================
+
+Front Office
+
+Housekeeping
+
+Kitchen
+
+Restaurant
+
+Security
+
+Maintenance
+
+Sales
+
+Accounts
+
+HR
+
+Management
+
+=========================================
+ATTENDANCE MODULE
+=========================================
+
+Attendance Status
+
+Present
+
+Absent
+
+Weekly Off
+
+Public Holiday
+
+Paid Leave
+
+Sick Leave
+
+Half Day
+
+Late
+
+Overtime
+
+Continue Duty
+
+Attendance methods
+
+Manual
+
+QR Code
+
+Biometric Ready
+
+Face Recognition Ready
+
+Attendance records
+
+Date
+
+Check In
+
+Check Out
+
+Working Hours
+
+Break Time
+
+Late Minutes
+
+Overtime Hours
+
+Remarks
+
+=========================================
+WEEKLY OFF MANAGEMENT
+=========================================
+
+This is one of the most important modules.
+
+Each employee can have different weekly off policies.
+
+Support:
+
+1 Day Every Week
+
+2 Days Every Week
+
+4 Days Per Month
+
+Custom Weekly Off
+
+Rotational Weekly Off
+
+Examples
+
+Employee A
+
+Sunday Off
+
+Employee B
+
+Monday Off
+
+Employee C
+
+4 Off Days Per Month
+
+Employee D
+
+Custom Rotational Schedule
+
+The system should automatically calculate expected working days based on the assigned weekly off policy.
+
+Weekly Off should NOT deduct salary.
+
+Weekly Off should appear separately from Absent.
+
+=========================================
+SHIFT MANAGEMENT
+=========================================
+
+Morning
+
+Evening
+
+Night
+
+General
+
+Custom
+
+Shift contains
+
+Start Time
+
+End Time
+
+Grace Period
+
+=========================================
+LEAVE MANAGEMENT
+=========================================
+
+Employee can apply leave.
+
+Leave Types
+
+Casual
+
+Sick
+
+Earned
+
+Emergency
+
+Loss Of Pay
+
+Maternity
+
+Paternity
+
+Workflow
+
+Pending
+
+Approved
+
+Rejected
+
+Manager Comments
+
+Leave Balance updates automatically.
+
+=========================================
+CONTINUE DUTY
+=========================================
+
+Continue Duty is a paid extra working day.
+
+Each employee can have Continue Duty entries.
+
+Example
+
+Employee works on scheduled weekly off.
+
+System adds Continue Duty.
+
+Admin defines payment.
+
+Example
+
+1 Continue Duty = ₹500
+
+Automatically added into payroll.
+
+=========================================
+ADVANCE MANAGEMENT
+=========================================
+
+Employees can receive salary advances.
+
+Fields
+
+Date
+
+Amount
+
+Reason
+
+Approved By
+
+Remaining Balance
+
+Automatically deduct during payroll generation.
+
+=========================================
+PAYROLL MANAGEMENT
+=========================================
+
+Automatic salary calculation.
+
+Formula
+
+Monthly Salary
+
++
+
+Continue Duty
+
++
+
+Overtime
+
++
+
+Bonus
+
++
+
+Allowances
+
+-
+
+Advance
+
+-
+
+Absent Deduction
+
+-
+
+Late Penalty
+
+-
+
+Loan Deduction
+
+=
+
+Net Salary
+
+Weekly Off should NEVER reduce salary.
+
+Expected Working Days should be calculated automatically according to each employee's weekly off policy.
+
+=========================================
+PAYSLIP
+=========================================
+
+Professional downloadable PDF.
+
+Include
+
+Hotel Logo
+
+Employee Details
+
+Month
+
+Working Days
+
+Weekly Off
+
+Leaves
+
+Absent
+
+Continue Duty
+
+Overtime
+
+Advance
+
+Gross Salary
+
+Deductions
+
+Net Salary
+
+QR Verification
+
+=========================================
+REPORTS
+=========================================
+
+Attendance Report
+
+Payroll Report
+
+Weekly Off Report
+
+Leave Report
+
+Department Report
+
+Branch Report
+
+Advance Report
+
+Continue Duty Report
+
+Export
+
+PDF
+
+Excel
+
+CSV
+
+=========================================
+ANNOUNCEMENTS
+=========================================
+
+HR can publish announcements.
+
+Employees receive notifications.
+
+=========================================
+NOTIFICATIONS
+=========================================
+
+Attendance Reminder
+
+Leave Approval
+
+Salary Released
+
+Birthday Wishes
+
+Company Announcement
+
+=========================================
+SEARCH
+=========================================
+
+Global Search
+
+Search employees
+
+Employee ID
+
+Phone
+
+Department
+
+Branch
+
+=========================================
+FILTERS
+=========================================
+
+Filter by
+
+Department
+
+Branch
+
+Shift
+
+Status
+
+Month
+
+Employee
+
+=========================================
+CALENDAR VIEW
+=========================================
+
+Interactive monthly attendance calendar.
+
+Different colors
+
+Present
+
+Absent
+
+Weekly Off
+
+Leave
+
+Holiday
+
+Continue Duty
+
+=========================================
+SETTINGS
+=========================================
+
+Configure
+
+Payroll Settings
+
+Working Hours
+
+Continue Duty Rate
+
+Overtime Rate
+
+Late Penalty
+
+Grace Time
+
+Leave Types
+
+Company Details
+
+Branch Settings
+
+Holiday Calendar
+
+=========================================
+AUDIT LOG
+=========================================
+
+Track every action.
+
+Who updated salary
+
+Who approved leave
+
+Who changed attendance
+
+Who created employee
+
+=========================================
+DATABASE STRUCTURE
+=========================================
+
+Tables
+
+Users
+
+Employees
+
+Branches
+
+Departments
+
+Attendance
+
+Shifts
+
+WeeklyOffPolicies
+
+WeeklyOffAssignments
+
+LeaveRequests
+
+Payroll
+
+Payslips
+
+Advances
+
+Bonuses
+
+Deductions
+
+Announcements
+
+Notifications
+
+Settings
+
+AuditLogs
+
+=========================================
+DASHBOARD DESIGN
+=========================================
+
+Sidebar Navigation
+
+Dashboard
+
+Employees
+
+Attendance
+
+Branches
+
+Departments
+
+Leave
+
+Payroll
+
+Advances
+
+Continue Duty
+
+Reports
+
+Announcements
+
+Settings
+
+Profile
+
+Top Navigation
+
+Search
+
+Notifications
+
+User Menu
+
+Modern KPI Cards
+
+Interactive Charts
+
+Responsive Tables
+
+Pagination
+
+Sorting
+
+Filtering
+
+=========================================
+TECH STACK
+=========================================
+
+Frontend
+
+React
+
+TypeScript
+
+Tailwind CSS
+
+shadcn/ui
+
+Lucide Icons
+
+Backend
+
+Supabase
+
+PostgreSQL
+
+Authentication
+
+Role-Based Access Control
+
+Storage
+
+Supabase Storage
+
+Charts
+
+Recharts
+
+PDF
+
+Professional PDF Generator
+
+=========================================
+EXTRA FEATURES
+=========================================
+
+Employee birthdays
+
+Joining anniversary reminders
+
+Payroll lock after processing
+
+Bulk attendance upload from Excel
+
+Bulk employee import
+
+Bulk salary generation
+
+Dark Mode
+
+Responsive Mobile Layout
+
+Keyboard shortcuts
+
+Toast notifications
+
+Loading skeletons
+
+Confirmation dialogs
+
+Data validation
+
+Empty states
+
+Professional error pages
+
+=========================================
+GOAL
+=========================================
+
+The application should feel like a premium HRMS product that hotels can actually use in production. It should be intuitive, modern, scalable, and optimized for managing employee attendance, weekly off policies, continue duty, salary advances, and automated payroll across multiple Red Fox Hotel branches.
