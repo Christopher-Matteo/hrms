@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/kiosk/"
+title = "Red Fox Attendance Kiosk"
+version = "1.0.0"
+id = "artifacts/attendance-kiosk"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/kiosk/" ]
+localPort = 23832
+
+[services.development]
+run = "pnpm --filter @workspace/attendance-kiosk run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/attendance-kiosk", "run", "build" ]
+publicDir = "artifacts/attendance-kiosk/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23832"
+BASE_PATH = "/kiosk/"

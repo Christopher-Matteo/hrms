@@ -9,6 +9,8 @@ export const branchesTable = pgTable("branches", {
   phone: text("phone").notNull(),
   email: text("email").notNull(),
   managerId: integer("manager_id"),
+  latitude: numeric("latitude", { precision: 10, scale: 7 }),
+  longitude: numeric("longitude", { precision: 10, scale: 7 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
