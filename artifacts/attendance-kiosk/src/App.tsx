@@ -18,12 +18,11 @@ type EmployeeInfo = {
   photoUrl: string | null;
 };
 type TodayAttendance = { id: number; checkIn: string | null; checkOut: string | null; status: string } | null;
-
 type LookupResult = { employee: EmployeeInfo; todayAttendance: TodayAttendance };
 
 type GpsState =
   | { status: "idle" }
-  | { status: "detecting" }
+  | { status: "requesting" }
   | { status: "found"; lat: number; lng: number; branchName?: string }
   | { status: "denied" }
   | { status: "error"; message: string };
@@ -78,12 +77,12 @@ function KioskApp() {
       .catch(() => {});
   }, []);
 
-  const detectGPS = useCallback(() => {
+  const requestGPS = useCallback(() => {
     if (!navigator.geolocation) {
-      setGps({ status: "error", message: "Geolocation not supported" });
+      setGps({ status: "error", message: "Geolocation is not supported by this browser." });
       return;
     }
-    setGps({ status: "detecting" });
+    setGps({ status: "requesting" });
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords;
@@ -106,19 +105,26 @@ function KioskApp() {
         });
       },
       (err) => {
-        if (err.code === 1) setGps({ status: "denied" });
-        else setGps({ status: "error", message: err.message });
+        if (err.code === 1) {
+          setGps({ status: "denied" });
+        } else {
+          setGps({ status: "error", message: err.message });
+        }
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 15000 }
     );
   }, [branches]);
 
   useEffect(() => {
-    if (branches.length > 0) detectGPS();
+    requestGPS();
   }, [branches.length]);
 
   const handleLookup = async () => {
     if (!empCode.trim()) return;
+    if (gps.status !== "found") {
+      requestGPS();
+      return;
+    }
     setLookupLoading(true);
     setLookupError("");
     setLookup(null);
@@ -151,10 +157,12 @@ function KioskApp() {
 
   const handleSubmit = async () => {
     if (!lookup) return;
+    if (gps.status !== "found") {
+      requestGPS();
+      return;
+    }
     setSubmitState("loading");
     setSubmitError("");
-    const lat = gps.status === "found" ? gps.lat : null;
-    const lng = gps.status === "found" ? gps.lng : null;
     try {
       const r = await fetch(`${BASE}/kiosk/submit`, {
         method: "POST",
@@ -162,8 +170,8 @@ function KioskApp() {
         body: JSON.stringify({
           employeeId: lookup.employee.id,
           type: actionType,
-          latitude: lat,
-          longitude: lng,
+          latitude: gps.lat,
+          longitude: gps.lng,
           branchId: lookup.employee.branchId,
         }),
       });
@@ -202,6 +210,9 @@ function KioskApp() {
   const alreadyCheckedIn = lookup?.todayAttendance?.checkIn && !lookup?.todayAttendance?.checkOut;
   const alreadyCheckedOut = lookup?.todayAttendance?.checkOut;
 
+  const gpsBlocked = gps.status === "denied" || gps.status === "error";
+  const gpsLoading = gps.status === "idle" || gps.status === "requesting";
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[hsl(348,70%,15%)] to-[hsl(348,70%,28%)] flex flex-col items-center justify-start pb-10">
       <header className="w-full bg-white/10 backdrop-blur-sm border-b border-white/20 px-4 py-3 flex items-center justify-between">
@@ -221,136 +232,223 @@ function KioskApp() {
       </header>
 
       <main className="w-full max-w-md px-4 mt-6 space-y-4">
-        {submitState === "success" && submitResult ? (
-          <SuccessScreen result={submitResult} employee={lookup!.employee} onReset={resetAll} />
-        ) : (
+        {gpsLoading && <GpsLoadingScreen />}
+
+        {gpsBlocked && (
+          <GpsBlockedScreen
+            isDenied={gps.status === "denied"}
+            errorMessage={gps.status === "error" ? gps.message : undefined}
+            onRetry={requestGPS}
+          />
+        )}
+
+        {gps.status === "found" && (
           <>
-            <div className="bg-white rounded-2xl shadow-xl p-5 space-y-4">
-              <div>
-                <h2 className="text-foreground font-bold text-lg mb-1">Employee Lookup</h2>
-                <p className="text-muted-foreground text-sm">Enter your employee ID to mark attendance</p>
-              </div>
-
-              <div className="flex gap-2">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={empCode}
-                  onChange={(e) => {
-                    setEmpCode(e.target.value.toUpperCase());
-                    setLookupError("");
-                    if (lookup) setLookup(null);
-                  }}
-                  onKeyDown={(e) => e.key === "Enter" && handleLookup()}
-                  placeholder="e.g. EMP001"
-                  className="flex-1 px-3 py-2 border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary uppercase"
-                  autoComplete="off"
-                  autoCapitalize="characters"
-                />
-                <button
-                  onClick={handleLookup}
-                  disabled={lookupLoading || !empCode.trim()}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
-                >
-                  {lookupLoading ? "..." : "Find"}
-                </button>
-              </div>
-
-              {lookupError && (
-                <div className="bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 text-destructive text-sm flex items-center gap-2">
-                  <span>⚠</span> {lookupError}
+            {submitState === "success" && submitResult ? (
+              <SuccessScreen result={submitResult} employee={lookup!.employee} onReset={resetAll} />
+            ) : (
+              <>
+                <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2 flex items-center gap-2 text-xs text-green-700">
+                  <span className="text-base">📍</span>
+                  <span className="flex-1">
+                    Location verified
+                    {gps.branchName ? ` · ${gps.branchName}` : ` · ${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)}`}
+                  </span>
                 </div>
-              )}
 
-              {lookup && (
-                <EmployeeCard employee={lookup.employee} todayAttendance={lookup.todayAttendance} />
-              )}
-            </div>
+                <div className="bg-white rounded-2xl shadow-xl p-5 space-y-4">
+                  <div>
+                    <h2 className="text-foreground font-bold text-lg mb-1">Employee Lookup</h2>
+                    <p className="text-muted-foreground text-sm">Enter your employee ID to mark attendance</p>
+                  </div>
 
-            {lookup && (
-              <div className="bg-white rounded-2xl shadow-xl p-5 space-y-4">
-                <GpsIndicator gps={gps} onRetry={detectGPS} />
-
-                {!alreadyCheckedOut && (
-                  <>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        onClick={() => setActionType("checkin")}
-                        className={`py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                          actionType === "checkin"
-                            ? "border-green-500 bg-green-50 text-green-700"
-                            : "border-border text-muted-foreground hover:border-green-200"
-                        }`}
-                      >
-                        <span className="block text-xl mb-1">🟢</span>
-                        Check In
-                        {lookup.todayAttendance?.checkIn && (
-                          <span className="block text-xs mt-0.5 opacity-60">
-                            Already at {lookup.todayAttendance.checkIn}
-                          </span>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => setActionType("checkout")}
-                        disabled={!alreadyCheckedIn}
-                        className={`py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                          actionType === "checkout"
-                            ? "border-primary bg-primary/5 text-primary"
-                            : "border-border text-muted-foreground hover:border-primary/30"
-                        } disabled:opacity-40 disabled:cursor-not-allowed`}
-                      >
-                        <span className="block text-xl mb-1">🔴</span>
-                        Check Out
-                        {!alreadyCheckedIn && (
-                          <span className="block text-xs mt-0.5 opacity-60">Check in first</span>
-                        )}
-                      </button>
-                    </div>
-
-                    {submitError && (
-                      <div className="bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 text-destructive text-sm">
-                        ⚠ {submitError}
-                      </div>
-                    )}
-
+                  <div className="flex gap-2">
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={empCode}
+                      onChange={(e) => {
+                        setEmpCode(e.target.value.toUpperCase());
+                        setLookupError("");
+                        if (lookup) setLookup(null);
+                      }}
+                      onKeyDown={(e) => e.key === "Enter" && handleLookup()}
+                      placeholder="e.g. EMP001"
+                      className="flex-1 px-3 py-2 border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary uppercase"
+                      autoComplete="off"
+                      autoCapitalize="characters"
+                    />
                     <button
-                      onClick={handleSubmit}
-                      disabled={submitState === "loading"}
-                      className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl text-base font-semibold hover:opacity-90 transition disabled:opacity-50 shadow-md"
+                      onClick={handleLookup}
+                      disabled={lookupLoading || !empCode.trim()}
+                      className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
                     >
-                      {submitState === "loading"
-                        ? "Submitting..."
-                        : actionType === "checkin"
-                        ? "Mark Check In"
-                        : "Mark Check Out"}
-                    </button>
-                  </>
-                )}
-
-                {alreadyCheckedOut && (
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-                    <div className="text-2xl mb-1">✅</div>
-                    <p className="text-green-700 font-semibold text-sm">Attendance complete for today</p>
-                    <p className="text-green-600 text-xs mt-1">
-                      In: {lookup.todayAttendance?.checkIn} · Out: {lookup.todayAttendance?.checkOut}
-                    </p>
-                    <button
-                      onClick={resetAll}
-                      className="mt-3 text-xs text-muted-foreground underline"
-                    >
-                      New employee
+                      {lookupLoading ? "..." : "Find"}
                     </button>
                   </div>
+
+                  {lookupError && (
+                    <div className="bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 text-destructive text-sm flex items-center gap-2">
+                      <span>⚠</span> {lookupError}
+                    </div>
+                  )}
+
+                  {lookup && (
+                    <EmployeeCard employee={lookup.employee} todayAttendance={lookup.todayAttendance} />
+                  )}
+                </div>
+
+                {lookup && (
+                  <div className="bg-white rounded-2xl shadow-xl p-5 space-y-4">
+                    {!alreadyCheckedOut && (
+                      <>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            onClick={() => setActionType("checkin")}
+                            className={`py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                              actionType === "checkin"
+                                ? "border-green-500 bg-green-50 text-green-700"
+                                : "border-border text-muted-foreground hover:border-green-200"
+                            }`}
+                          >
+                            <span className="block text-xl mb-1">🟢</span>
+                            Check In
+                            {lookup.todayAttendance?.checkIn && (
+                              <span className="block text-xs mt-0.5 opacity-60">
+                                at {lookup.todayAttendance.checkIn}
+                              </span>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => setActionType("checkout")}
+                            disabled={!alreadyCheckedIn}
+                            className={`py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                              actionType === "checkout"
+                                ? "border-primary bg-primary/5 text-primary"
+                                : "border-border text-muted-foreground hover:border-primary/30"
+                            } disabled:opacity-40 disabled:cursor-not-allowed`}
+                          >
+                            <span className="block text-xl mb-1">🔴</span>
+                            Check Out
+                            {!alreadyCheckedIn && (
+                              <span className="block text-xs mt-0.5 opacity-60">Check in first</span>
+                            )}
+                          </button>
+                        </div>
+
+                        {submitError && (
+                          <div className="bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 text-destructive text-sm">
+                            ⚠ {submitError}
+                          </div>
+                        )}
+
+                        <button
+                          onClick={handleSubmit}
+                          disabled={submitState === "loading"}
+                          className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl text-base font-semibold hover:opacity-90 transition disabled:opacity-50 shadow-md"
+                        >
+                          {submitState === "loading"
+                            ? "Submitting..."
+                            : actionType === "checkin"
+                            ? "Mark Check In"
+                            : "Mark Check Out"}
+                        </button>
+                      </>
+                    )}
+
+                    {alreadyCheckedOut && (
+                      <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+                        <div className="text-2xl mb-1">✅</div>
+                        <p className="text-green-700 font-semibold text-sm">Attendance complete for today</p>
+                        <p className="text-green-600 text-xs mt-1">
+                          In: {lookup.todayAttendance?.checkIn} · Out: {lookup.todayAttendance?.checkOut}
+                        </p>
+                        <button onClick={resetAll} className="mt-3 text-xs text-muted-foreground underline">
+                          New employee
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
-              </div>
+              </>
             )}
           </>
         )}
 
         <div className="text-center text-white/40 text-xs">
-          Scan QR code or enter employee ID • Red Fox Hotel HRMS
+          Scan QR code or enter employee ID · Red Fox Hotel HRMS
         </div>
       </main>
+    </div>
+  );
+}
+
+function GpsLoadingScreen() {
+  return (
+    <div className="bg-white rounded-2xl shadow-xl p-8 text-center space-y-4">
+      <div className="w-16 h-16 mx-auto rounded-full bg-blue-50 flex items-center justify-center">
+        <span className="text-3xl animate-pulse">📍</span>
+      </div>
+      <div>
+        <h2 className="font-bold text-lg text-foreground">Detecting Your Location</h2>
+        <p className="text-muted-foreground text-sm mt-1">
+          Please allow location access when prompted by your browser.
+        </p>
+      </div>
+      <div className="flex items-center justify-center gap-1.5">
+        <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />
+        <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
+        <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
+      </div>
+    </div>
+  );
+}
+
+function GpsBlockedScreen({
+  isDenied,
+  errorMessage,
+  onRetry,
+}: {
+  isDenied: boolean;
+  errorMessage?: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="bg-white rounded-2xl shadow-xl p-8 text-center space-y-5">
+      <div className="w-16 h-16 mx-auto rounded-full bg-red-50 flex items-center justify-center">
+        <span className="text-3xl">🚫</span>
+      </div>
+      <div>
+        <h2 className="font-bold text-lg text-foreground">Location Access Required</h2>
+        <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
+          {isDenied
+            ? "You have blocked location access. Location is mandatory to mark attendance — it verifies you are physically present at the branch."
+            : `Location error: ${errorMessage ?? "Unknown error"}. Please try again.`}
+        </p>
+      </div>
+
+      {isDenied && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-left space-y-1">
+          <p className="text-amber-800 font-semibold text-xs">How to enable location on your phone:</p>
+          <p className="text-amber-700 text-xs">
+            <strong>iOS:</strong> Settings → Safari → Location → Allow
+          </p>
+          <p className="text-amber-700 text-xs">
+            <strong>Android:</strong> Tap the lock icon in your browser address bar → Permissions → Location → Allow
+          </p>
+        </div>
+      )}
+
+      <button
+        onClick={onRetry}
+        className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl text-base font-semibold hover:opacity-90 transition shadow-md"
+      >
+        {isDenied ? "I've Enabled Location — Try Again" : "Retry Location"}
+      </button>
+
+      <p className="text-xs text-muted-foreground">
+        Location is required to prevent proxy attendance. Your coordinates are recorded with each entry.
+      </p>
     </div>
   );
 }
@@ -373,53 +471,11 @@ function EmployeeCard({ employee, todayAttendance }: { employee: EmployeeInfo; t
       <div className="text-right flex-shrink-0">
         <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Active</span>
         {todayAttendance?.checkIn && (
-          <p className="text-xs text-muted-foreground mt-1">
-            In: {todayAttendance.checkIn}
-          </p>
+          <p className="text-xs text-muted-foreground mt-1">In: {todayAttendance.checkIn}</p>
         )}
       </div>
     </div>
   );
-}
-
-function GpsIndicator({ gps, onRetry }: { gps: GpsState; onRetry: () => void }) {
-  if (gps.status === "found") {
-    return (
-      <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-        <span className="text-base">📍</span>
-        <span className="flex-1">
-          GPS detected
-          {gps.branchName ? ` · Nearest: ${gps.branchName}` : ` · ${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)}`}
-        </span>
-      </div>
-    );
-  }
-  if (gps.status === "detecting") {
-    return (
-      <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-        <span className="animate-spin text-base">⌛</span>
-        <span>Detecting location…</span>
-      </div>
-    );
-  }
-  if (gps.status === "denied") {
-    return (
-      <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-        <span className="text-base">📵</span>
-        <span className="flex-1">Location access denied — attendance will be recorded without GPS</span>
-      </div>
-    );
-  }
-  if (gps.status === "error") {
-    return (
-      <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 border rounded-lg px-3 py-2">
-        <span className="text-base">⚠</span>
-        <span className="flex-1">Location unavailable</span>
-        <button onClick={onRetry} className="text-primary underline ml-1">Retry</button>
-      </div>
-    );
-  }
-  return null;
 }
 
 function SuccessScreen({
@@ -432,24 +488,17 @@ function SuccessScreen({
   onReset: () => void;
 }) {
   const isCheckIn = result.type === "checkin";
-
   return (
     <div className="bg-white rounded-2xl shadow-xl p-8 text-center space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="text-5xl">{isCheckIn ? "🟢" : "✅"}</div>
       <div>
-        <h2 className="text-xl font-bold text-foreground">
-          {isCheckIn ? "Checked In!" : "Checked Out!"}
-        </h2>
-        <p className="text-muted-foreground text-sm mt-1">
-          {employee.name}
-        </p>
+        <h2 className="text-xl font-bold text-foreground">{isCheckIn ? "Checked In!" : "Checked Out!"}</h2>
+        <p className="text-muted-foreground text-sm mt-1">{employee.name}</p>
       </div>
       <div className="bg-muted/50 rounded-xl px-6 py-4">
         <p className="text-3xl font-bold text-primary font-mono">{result.time}</p>
         {!isCheckIn && result.workingHours !== undefined && (
-          <p className="text-sm text-muted-foreground mt-1">
-            Working hours: {result.workingHours.toFixed(2)} hrs
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">Working hours: {result.workingHours.toFixed(2)} hrs</p>
         )}
         <p className="text-xs text-muted-foreground mt-1">{employee.branchName}</p>
       </div>
