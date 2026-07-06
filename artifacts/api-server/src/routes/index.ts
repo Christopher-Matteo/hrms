@@ -18,9 +18,11 @@ import settingsRouter from "./settings";
 import auditLogsRouter from "./auditLogs";
 import dashboardRouter from "./dashboard";
 import reportsRouter from "./reports";
+import kioskRouter from "./kiosk";
 
 const router: IRouter = Router();
 
+router.use(kioskRouter);
 router.use(healthRouter);
 router.use(authRouter);
 router.use(branchesRouter);
