@@ -58,11 +58,13 @@ async function formatEmployee(e: typeof employeesTable.$inferSelect) {
 }
 
 async function generateEmployeeId(): Promise<string> {
-  const [result] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(employeesTable);
-  const count = Number(result?.count ?? 0) + 1;
-  return `EMP${String(count).padStart(3, "0")}`;
+  const rows = await db.select({ employeeId: employeesTable.employeeId }).from(employeesTable);
+  let maxNum = 0;
+  for (const row of rows) {
+    const m = row.employeeId.match(/^EMP(\d+)$/i);
+    if (m) maxNum = Math.max(maxNum, parseInt(m[1]!, 10));
+  }
+  return `EMP${String(maxNum + 1).padStart(3, "0")}`;
 }
 
 router.get("/employees", async (req, res): Promise<void> => {
