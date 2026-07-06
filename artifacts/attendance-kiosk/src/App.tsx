@@ -115,8 +115,12 @@ function KioskApp() {
     );
   }, [branches]);
 
+  const hasRequestedOnce = useRef(false);
   useEffect(() => {
-    requestGPS();
+    if (!hasRequestedOnce.current && branches.length >= 0) {
+      hasRequestedOnce.current = true;
+      requestGPS();
+    }
   }, [branches.length]);
 
   const handleLookup = async () => {
@@ -414,41 +418,50 @@ function GpsBlockedScreen({
   onRetry: () => void;
 }) {
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-8 text-center space-y-5">
-      <div className="w-16 h-16 mx-auto rounded-full bg-red-50 flex items-center justify-center">
-        <span className="text-3xl">🚫</span>
-      </div>
-      <div>
-        <h2 className="font-bold text-lg text-foreground">Location Access Required</h2>
-        <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
-          {isDenied
-            ? "You have blocked location access. Location is mandatory to mark attendance — it verifies you are physically present at the branch."
-            : `Location error: ${errorMessage ?? "Unknown error"}. Please try again.`}
+    <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+      <div className="bg-red-600 px-6 py-5 text-center">
+        <div className="w-16 h-16 mx-auto rounded-full bg-white/20 flex items-center justify-center mb-3">
+          <span className="text-3xl">📵</span>
+        </div>
+        <h2 className="font-bold text-xl text-white">Location Access Required</h2>
+        <p className="text-red-100 text-sm mt-1">
+          You cannot mark attendance without enabling location.
         </p>
       </div>
 
-      {isDenied && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-left space-y-1">
-          <p className="text-amber-800 font-semibold text-xs">How to enable location on your phone:</p>
-          <p className="text-amber-700 text-xs">
-            <strong>iOS:</strong> Settings → Safari → Location → Allow
+      <div className="p-6 space-y-5">
+        <p className="text-foreground text-sm leading-relaxed text-center">
+          {isDenied
+            ? "Location permission was denied. Tap the button below — your browser will ask for permission again."
+            : `Location error: ${errorMessage ?? "Unable to detect location."} Tap the button to try again.`}
+        </p>
+
+        <button
+          onClick={onRetry}
+          className="w-full py-4 bg-primary text-primary-foreground rounded-xl text-base font-bold hover:opacity-90 active:scale-95 transition shadow-lg"
+        >
+          📍 Turn On Location Permission
+        </button>
+
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-2">
+          <p className="text-amber-800 font-semibold text-xs text-center">
+            If the permission popup doesn't appear:
           </p>
           <p className="text-amber-700 text-xs">
-            <strong>Android:</strong> Tap the lock icon in your browser address bar → Permissions → Location → Allow
+            <strong>iPhone / Safari:</strong> Go to Settings → Safari → Location → set to "Ask" or "Allow"
+          </p>
+          <p className="text-amber-700 text-xs">
+            <strong>Android / Chrome:</strong> Tap the 🔒 lock icon in the address bar → Site settings → Location → Allow
+          </p>
+          <p className="text-amber-700 text-xs">
+            Then come back to this page and tap the button above.
           </p>
         </div>
-      )}
 
-      <button
-        onClick={onRetry}
-        className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl text-base font-semibold hover:opacity-90 transition shadow-md"
-      >
-        {isDenied ? "I've Enabled Location — Try Again" : "Retry Location"}
-      </button>
-
-      <p className="text-xs text-muted-foreground">
-        Location is required to prevent proxy attendance. Your coordinates are recorded with each entry.
-      </p>
+        <p className="text-xs text-muted-foreground text-center">
+          GPS coordinates are recorded with every check-in and check-out to verify physical presence.
+        </p>
+      </div>
     </div>
   );
 }
