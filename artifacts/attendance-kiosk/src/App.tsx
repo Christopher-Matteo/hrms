@@ -3,7 +3,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./index.css";
 
 const queryClient = new QueryClient();
-
 const BASE = "/api";
 
 type Branch = { id: number; name: string; address: string; latitude: number | null; longitude: number | null };
@@ -69,6 +68,7 @@ function KioskApp() {
   const [submitResult, setSubmitResult] = useState<{ type: string; time: string; workingHours?: number } | null>(null);
   const [submitError, setSubmitError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const hasRequestedGps = useRef(false);
 
   useEffect(() => {
     fetch(`${BASE}/kiosk/branches`)
@@ -105,30 +105,23 @@ function KioskApp() {
         });
       },
       (err) => {
-        if (err.code === 1) {
-          setGps({ status: "denied" });
-        } else {
-          setGps({ status: "error", message: err.message });
-        }
+        if (err.code === 1) setGps({ status: "denied" });
+        else setGps({ status: "error", message: err.message });
       },
-      { enableHighAccuracy: true, timeout: 15000 }
+      { enableHighAccuracy: true, timeout: 30000 }
     );
   }, [branches]);
 
-  const hasRequestedOnce = useRef(false);
+  // Request GPS once on load
   useEffect(() => {
-    if (!hasRequestedOnce.current && branches.length >= 0) {
-      hasRequestedOnce.current = true;
+    if (!hasRequestedGps.current) {
+      hasRequestedGps.current = true;
       requestGPS();
     }
-  }, [branches.length]);
+  }, []);
 
   const handleLookup = async () => {
     if (!empCode.trim()) return;
-    if (gps.status !== "found") {
-      requestGPS();
-      return;
-    }
     setLookupLoading(true);
     setLookupError("");
     setLookup(null);
@@ -161,10 +154,8 @@ function KioskApp() {
 
   const handleSubmit = async () => {
     if (!lookup) return;
-    if (gps.status !== "found") {
-      requestGPS();
-      return;
-    }
+    // GPS is mandatory for submission
+    if (gps.status !== "found") return;
     setSubmitState("loading");
     setSubmitError("");
     try {
@@ -211,14 +202,15 @@ function KioskApp() {
     inputRef.current?.focus();
   };
 
-  const alreadyCheckedIn = lookup?.todayAttendance?.checkIn && !lookup?.todayAttendance?.checkOut;
-  const alreadyCheckedOut = lookup?.todayAttendance?.checkOut;
-
+  const alreadyCheckedIn = !!(lookup?.todayAttendance?.checkIn && !lookup?.todayAttendance?.checkOut);
+  const alreadyCheckedOut = !!lookup?.todayAttendance?.checkOut;
+  const gpsReady = gps.status === "found";
   const gpsBlocked = gps.status === "denied" || gps.status === "error";
   const gpsLoading = gps.status === "idle" || gps.status === "requesting";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[hsl(348,70%,15%)] to-[hsl(348,70%,28%)] flex flex-col items-center justify-start pb-10">
+      {/* Header */}
       <header className="w-full bg-white/10 backdrop-blur-sm border-b border-white/20 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
@@ -235,233 +227,209 @@ function KioskApp() {
         </div>
       </header>
 
-      <main className="w-full max-w-md px-4 mt-6 space-y-4">
-        {gpsLoading && <GpsLoadingScreen />}
+      <main className="w-full max-w-md px-4 mt-4 space-y-4">
 
-        {gpsBlocked && (
-          <GpsBlockedScreen
-            isDenied={gps.status === "denied"}
-            errorMessage={gps.status === "error" ? gps.message : undefined}
-            onRetry={requestGPS}
-          />
+        {/* ── GPS Status Banner ── */}
+        {gpsLoading && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center gap-3">
+            <span className="text-xl animate-pulse">📍</span>
+            <div className="flex-1">
+              <p className="text-blue-800 font-semibold text-sm">Detecting your location…</p>
+              <p className="text-blue-600 text-xs mt-0.5">Please allow location access when your browser asks.</p>
+            </div>
+            <div className="flex gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce [animation-delay:0ms]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce [animation-delay:150ms]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce [animation-delay:300ms]" />
+            </div>
+          </div>
         )}
 
-        {gps.status === "found" && (
+        {gpsReady && (
+          <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 flex items-center gap-2 text-sm text-green-700">
+            <span className="text-base">✅</span>
+            <span className="flex-1 font-medium">
+              Location verified
+              {(gps as { status: "found"; lat: number; lng: number; branchName?: string }).branchName
+                ? ` — ${(gps as { status: "found"; lat: number; lng: number; branchName?: string }).branchName}`
+                : ""}
+            </span>
+          </div>
+        )}
+
+        {gpsBlocked && (
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+            <div className="bg-red-600 px-5 py-4 text-center">
+              <span className="text-3xl">📵</span>
+              <h2 className="font-bold text-lg text-white mt-2">Location Access Required</h2>
+              <p className="text-red-100 text-xs mt-1">GPS is mandatory to mark attendance.</p>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-foreground text-sm text-center leading-relaxed">
+                {gps.status === "denied"
+                  ? "Location permission was denied. Tap the button below to request it again."
+                  : `Location error: ${(gps as { status: "error"; message: string }).message}`}
+              </p>
+              <button
+                onClick={requestGPS}
+                className="w-full py-4 bg-primary text-primary-foreground rounded-xl text-base font-bold active:scale-95 transition shadow-lg"
+              >
+                📍 Turn On Location Permission
+              </button>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-1.5">
+                <p className="text-amber-800 font-semibold text-xs text-center">If the popup doesn't appear:</p>
+                <p className="text-amber-700 text-xs">
+                  <strong>iPhone:</strong> Settings → Safari → Location → set to "Ask" or "Allow"
+                </p>
+                <p className="text-amber-700 text-xs">
+                  <strong>Android:</strong> Tap 🔒 in the address bar → Site settings → Location → Allow
+                </p>
+                <p className="text-amber-700 text-xs">Then tap the button above again.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Employee Lookup — always visible ── */}
+        {submitState === "success" && submitResult ? (
+          <SuccessScreen result={submitResult} employee={lookup!.employee} onReset={resetAll} />
+        ) : (
           <>
-            {submitState === "success" && submitResult ? (
-              <SuccessScreen result={submitResult} employee={lookup!.employee} onReset={resetAll} />
-            ) : (
-              <>
-                <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2 flex items-center gap-2 text-xs text-green-700">
-                  <span className="text-base">📍</span>
-                  <span className="flex-1">
-                    Location verified
-                    {gps.branchName ? ` · ${gps.branchName}` : ` · ${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)}`}
-                  </span>
+            <div className="bg-white rounded-2xl shadow-xl p-5 space-y-4">
+              <div>
+                <h2 className="text-foreground font-bold text-lg mb-0.5">Employee Lookup</h2>
+                <p className="text-muted-foreground text-sm">Enter your employee ID (e.g. EMP001)</p>
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={empCode}
+                  onChange={(e) => {
+                    setEmpCode(e.target.value.toUpperCase());
+                    setLookupError("");
+                    if (lookup) setLookup(null);
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && handleLookup()}
+                  placeholder="EMP001"
+                  className="flex-1 px-3 py-2 border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary uppercase"
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                />
+                <button
+                  onClick={handleLookup}
+                  disabled={lookupLoading || !empCode.trim()}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+                >
+                  {lookupLoading ? "…" : "Find"}
+                </button>
+              </div>
+
+              {lookupError && (
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 text-destructive text-sm">
+                  ⚠ {lookupError}
                 </div>
+              )}
 
-                <div className="bg-white rounded-2xl shadow-xl p-5 space-y-4">
-                  <div>
-                    <h2 className="text-foreground font-bold text-lg mb-1">Employee Lookup</h2>
-                    <p className="text-muted-foreground text-sm">Enter your employee ID to mark attendance</p>
-                  </div>
+              {lookup && (
+                <EmployeeCard employee={lookup.employee} todayAttendance={lookup.todayAttendance} />
+              )}
+            </div>
 
-                  <div className="flex gap-2">
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      value={empCode}
-                      onChange={(e) => {
-                        setEmpCode(e.target.value.toUpperCase());
-                        setLookupError("");
-                        if (lookup) setLookup(null);
-                      }}
-                      onKeyDown={(e) => e.key === "Enter" && handleLookup()}
-                      placeholder="e.g. EMP001"
-                      className="flex-1 px-3 py-2 border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary uppercase"
-                      autoComplete="off"
-                      autoCapitalize="characters"
-                    />
-                    <button
-                      onClick={handleLookup}
-                      disabled={lookupLoading || !empCode.trim()}
-                      className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
-                    >
-                      {lookupLoading ? "..." : "Find"}
+            {/* ── Attendance Actions ── */}
+            {lookup && (
+              <div className="bg-white rounded-2xl shadow-xl p-5 space-y-4">
+                {alreadyCheckedOut ? (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+                    <div className="text-2xl mb-1">✅</div>
+                    <p className="text-green-700 font-semibold text-sm">Attendance complete for today</p>
+                    <p className="text-green-600 text-xs mt-1">
+                      In: {lookup.todayAttendance?.checkIn} · Out: {lookup.todayAttendance?.checkOut}
+                    </p>
+                    <button onClick={resetAll} className="mt-3 text-xs text-muted-foreground underline">
+                      Next employee
                     </button>
                   </div>
-
-                  {lookupError && (
-                    <div className="bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 text-destructive text-sm flex items-center gap-2">
-                      <span>⚠</span> {lookupError}
-                    </div>
-                  )}
-
-                  {lookup && (
-                    <EmployeeCard employee={lookup.employee} todayAttendance={lookup.todayAttendance} />
-                  )}
-                </div>
-
-                {lookup && (
-                  <div className="bg-white rounded-2xl shadow-xl p-5 space-y-4">
-                    {!alreadyCheckedOut && (
-                      <>
-                        <div className="grid grid-cols-2 gap-3">
-                          <button
-                            onClick={() => setActionType("checkin")}
-                            className={`py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                              actionType === "checkin"
-                                ? "border-green-500 bg-green-50 text-green-700"
-                                : "border-border text-muted-foreground hover:border-green-200"
-                            }`}
-                          >
-                            <span className="block text-xl mb-1">🟢</span>
-                            Check In
-                            {lookup.todayAttendance?.checkIn && (
-                              <span className="block text-xs mt-0.5 opacity-60">
-                                at {lookup.todayAttendance.checkIn}
-                              </span>
-                            )}
-                          </button>
-                          <button
-                            onClick={() => setActionType("checkout")}
-                            disabled={!alreadyCheckedIn}
-                            className={`py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                              actionType === "checkout"
-                                ? "border-primary bg-primary/5 text-primary"
-                                : "border-border text-muted-foreground hover:border-primary/30"
-                            } disabled:opacity-40 disabled:cursor-not-allowed`}
-                          >
-                            <span className="block text-xl mb-1">🔴</span>
-                            Check Out
-                            {!alreadyCheckedIn && (
-                              <span className="block text-xs mt-0.5 opacity-60">Check in first</span>
-                            )}
-                          </button>
-                        </div>
-
-                        {submitError && (
-                          <div className="bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 text-destructive text-sm">
-                            ⚠ {submitError}
-                          </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => setActionType("checkin")}
+                        className={`py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                          actionType === "checkin"
+                            ? "border-green-500 bg-green-50 text-green-700"
+                            : "border-border text-muted-foreground hover:border-green-200"
+                        }`}
+                      >
+                        <span className="block text-xl mb-1">🟢</span>
+                        Check In
+                        {lookup.todayAttendance?.checkIn && (
+                          <span className="block text-xs mt-0.5 opacity-60">at {lookup.todayAttendance.checkIn}</span>
                         )}
+                      </button>
+                      <button
+                        onClick={() => setActionType("checkout")}
+                        disabled={!alreadyCheckedIn}
+                        className={`py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                          actionType === "checkout"
+                            ? "border-primary bg-primary/5 text-primary"
+                            : "border-border text-muted-foreground hover:border-primary/30"
+                        } disabled:opacity-40 disabled:cursor-not-allowed`}
+                      >
+                        <span className="block text-xl mb-1">🔴</span>
+                        Check Out
+                        {!alreadyCheckedIn && (
+                          <span className="block text-xs mt-0.5 opacity-60">Check in first</span>
+                        )}
+                      </button>
+                    </div>
 
-                        <button
-                          onClick={handleSubmit}
-                          disabled={submitState === "loading"}
-                          className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl text-base font-semibold hover:opacity-90 transition disabled:opacity-50 shadow-md"
-                        >
-                          {submitState === "loading"
-                            ? "Submitting..."
-                            : actionType === "checkin"
-                            ? "Mark Check In"
-                            : "Mark Check Out"}
-                        </button>
-                      </>
-                    )}
-
-                    {alreadyCheckedOut && (
-                      <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-                        <div className="text-2xl mb-1">✅</div>
-                        <p className="text-green-700 font-semibold text-sm">Attendance complete for today</p>
-                        <p className="text-green-600 text-xs mt-1">
-                          In: {lookup.todayAttendance?.checkIn} · Out: {lookup.todayAttendance?.checkOut}
-                        </p>
-                        <button onClick={resetAll} className="mt-3 text-xs text-muted-foreground underline">
-                          New employee
-                        </button>
+                    {submitError && (
+                      <div className="bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 text-destructive text-sm">
+                        ⚠ {submitError}
                       </div>
                     )}
-                  </div>
+
+                    {/* Submit — gated on GPS */}
+                    {gpsReady ? (
+                      <button
+                        onClick={handleSubmit}
+                        disabled={submitState === "loading"}
+                        className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl text-base font-semibold hover:opacity-90 transition disabled:opacity-50 shadow-md"
+                      >
+                        {submitState === "loading"
+                          ? "Submitting…"
+                          : actionType === "checkin"
+                          ? "Mark Check In"
+                          : "Mark Check Out"}
+                      </button>
+                    ) : gpsLoading ? (
+                      <button
+                        disabled
+                        className="w-full py-3.5 bg-blue-100 text-blue-500 rounded-xl text-base font-semibold cursor-not-allowed"
+                      >
+                        ⏳ Waiting for location…
+                      </button>
+                    ) : (
+                      <button
+                        onClick={requestGPS}
+                        className="w-full py-3.5 bg-red-600 text-white rounded-xl text-base font-bold active:scale-95 transition shadow-md"
+                      >
+                        📍 Turn On Location to Submit
+                      </button>
+                    )}
+                  </>
                 )}
-              </>
+              </div>
             )}
           </>
         )}
 
-        <div className="text-center text-white/40 text-xs">
+        <p className="text-center text-white/40 text-xs">
           Scan QR code or enter employee ID · Red Fox Hotel HRMS
-        </div>
+        </p>
       </main>
-    </div>
-  );
-}
-
-function GpsLoadingScreen() {
-  return (
-    <div className="bg-white rounded-2xl shadow-xl p-8 text-center space-y-4">
-      <div className="w-16 h-16 mx-auto rounded-full bg-blue-50 flex items-center justify-center">
-        <span className="text-3xl animate-pulse">📍</span>
-      </div>
-      <div>
-        <h2 className="font-bold text-lg text-foreground">Detecting Your Location</h2>
-        <p className="text-muted-foreground text-sm mt-1">
-          Please allow location access when prompted by your browser.
-        </p>
-      </div>
-      <div className="flex items-center justify-center gap-1.5">
-        <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />
-        <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
-        <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
-      </div>
-    </div>
-  );
-}
-
-function GpsBlockedScreen({
-  isDenied,
-  errorMessage,
-  onRetry,
-}: {
-  isDenied: boolean;
-  errorMessage?: string;
-  onRetry: () => void;
-}) {
-  return (
-    <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-      <div className="bg-red-600 px-6 py-5 text-center">
-        <div className="w-16 h-16 mx-auto rounded-full bg-white/20 flex items-center justify-center mb-3">
-          <span className="text-3xl">📵</span>
-        </div>
-        <h2 className="font-bold text-xl text-white">Location Access Required</h2>
-        <p className="text-red-100 text-sm mt-1">
-          You cannot mark attendance without enabling location.
-        </p>
-      </div>
-
-      <div className="p-6 space-y-5">
-        <p className="text-foreground text-sm leading-relaxed text-center">
-          {isDenied
-            ? "Location permission was denied. Tap the button below — your browser will ask for permission again."
-            : `Location error: ${errorMessage ?? "Unable to detect location."} Tap the button to try again.`}
-        </p>
-
-        <button
-          onClick={onRetry}
-          className="w-full py-4 bg-primary text-primary-foreground rounded-xl text-base font-bold hover:opacity-90 active:scale-95 transition shadow-lg"
-        >
-          📍 Turn On Location Permission
-        </button>
-
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-2">
-          <p className="text-amber-800 font-semibold text-xs text-center">
-            If the permission popup doesn't appear:
-          </p>
-          <p className="text-amber-700 text-xs">
-            <strong>iPhone / Safari:</strong> Go to Settings → Safari → Location → set to "Ask" or "Allow"
-          </p>
-          <p className="text-amber-700 text-xs">
-            <strong>Android / Chrome:</strong> Tap the 🔒 lock icon in the address bar → Site settings → Location → Allow
-          </p>
-          <p className="text-amber-700 text-xs">
-            Then come back to this page and tap the button above.
-          </p>
-        </div>
-
-        <p className="text-xs text-muted-foreground text-center">
-          GPS coordinates are recorded with every check-in and check-out to verify physical presence.
-        </p>
-      </div>
     </div>
   );
 }
