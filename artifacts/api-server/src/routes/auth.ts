@@ -477,7 +477,7 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
     attemptCount: 0,
   });
 
-  await sendMail(
+  sendMail(
     employee.email.trim().toLowerCase(),
     "Password Reset OTP - Red Fox Hotel HRMS",
     `<div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px;">
@@ -489,7 +489,9 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
       </div>
       <p style="color: #777; font-size: 12px;">This OTP is valid for 5 minutes. If you did not request this, please ignore this email.</p>
     </div>`
-  );
+  ).catch(err => {
+    console.error("[MAILER ERROR] Background mailer failed for password reset:", err);
+  });
 
   res.json({ success: true, message: "OTP sent successfully." });
 });

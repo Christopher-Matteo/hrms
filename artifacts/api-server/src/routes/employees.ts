@@ -135,7 +135,7 @@ router.post("/employees/verify-email/request", async (req, res): Promise<void> =
     expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 mins expiry
   });
 
-  await sendMail(
+  sendMail(
     email.trim().toLowerCase(),
     "Email Verification OTP - Red Fox Hotel HRMS",
     `<div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px;">
@@ -147,7 +147,9 @@ router.post("/employees/verify-email/request", async (req, res): Promise<void> =
       </div>
       <p style="color: #777; font-size: 12px;">This OTP is valid for 15 minutes. Please do not share this code with anyone.</p>
     </div>`
-  );
+  ).catch(err => {
+    console.error("[MAILER ERROR] Background mailer failed for email verification:", err);
+  });
 
   res.json({ success: true, message: "OTP sent successfully." });
 });
