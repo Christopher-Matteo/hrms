@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, employeesTable, branchesTable, shiftsTable, weeklyOffPoliciesTable, faceEmbeddingsTable, emailVerificationsTable, usersTable } from "@workspace/db";
 import { eq, and, ilike, sql, desc } from "drizzle-orm";
 import { sendMail } from "../lib/mailer";
+import * as crypto from "crypto";
 
 const router: IRouter = Router();
 
@@ -351,6 +352,49 @@ router.post("/employees/:id/face-embedding", async (req, res): Promise<void> => 
   }
 
   res.json({ success: true });
+});
+
+router.post("/employees/:id/password", async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  const { password } = req.body;
+
+  if (!password || password.length < 6) {
+    res.status(400).json({ error: "Password must be at least 6 characters long." });
+    return;
+  }
+
+  const [employee] = await db.select().from(employeesTable).where(eq(employeesTable.id, id));
+  if (!employee) {
+    res.status(404).json({ error: "Employee not found." });
+    return;
+  }
+
+  const [existingUser] = await db.select().from(usersTable).where(eq(usersTable.employeeId, employee.id));
+  const passwordHash = crypto.createHash("sha256").update(password + "hrms_salt_2024").digest("hex");
+  const name = `${employee.firstName} ${employee.lastName}`;
+
+  if (existingUser) {
+    await db
+      .update(usersTable)
+      .set({ passwordHash })
+      .where(eq(usersTable.id, existingUser.id));
+  } else {
+    let role = "employee";
+    if (employee.employeeId === "EMP001") role = "hr_manager";
+    else if (employee.employeeId === "EMP003") role = "branch_manager";
+
+    await db.insert(usersTable).values({
+      email: employee.email,
+      passwordHash,
+      name,
+      role,
+      branchId: employee.branchId,
+      employeeId: employee.id,
+    });
+  }
+
+  res.json({ success: true, message: "Password updated successfully." });
 });
 
 export default router;

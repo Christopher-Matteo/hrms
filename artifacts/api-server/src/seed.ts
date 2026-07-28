@@ -102,7 +102,7 @@ async function seed() {
 
   await db.insert(employeesTable).values(employees);
 
-  // Create user accounts for HR manager and branch managers - marked as "Password Not Set"
+  // Create user accounts for HR manager and branch managers with default passwords (NAME + DOB Year)
   const insertedEmps = await db.select().from(employeesTable).limit(10);
   for (const emp of insertedEmps) {
     let role = "employee";
@@ -115,9 +115,14 @@ async function seed() {
       email = "manager@redfoxhotel.com";
     }
 
+    const firstFour = emp.firstName.substring(0, 4).toUpperCase();
+    const birthYear = emp.dob ? new Date(emp.dob).getFullYear() : 2000;
+    const defaultPass = `${firstFour}${birthYear}`;
+    const passwordHash = hashPassword(defaultPass);
+
     await db.insert(usersTable).values({
       email,
-      passwordHash: "Password Not Set",
+      passwordHash,
       name: `${emp.firstName} ${emp.lastName}`,
       role,
       branchId: emp.branchId,

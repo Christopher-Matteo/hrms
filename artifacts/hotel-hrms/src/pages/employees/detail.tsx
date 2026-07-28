@@ -41,6 +41,35 @@ export default function EmployeeDetailPage() {
   const [verifyError, setVerifyError] = useState("");
   const [verifyLoading, setVerifyLoading] = useState(false);
 
+  // Manual password set states
+  const [manualPassword, setManualPassword] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const handleSetPassword = async () => {
+    if (!manualPassword || manualPassword.length < 6) return;
+    setPasswordLoading(true);
+    setPasswordMessage(null);
+    try {
+      const res = await fetch(`/api/employees/${id}/password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: manualPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPasswordMessage({ type: "error", text: data.error ?? "Failed to set password." });
+      } else {
+        setPasswordMessage({ type: "success", text: "Password updated successfully!" });
+        setManualPassword("");
+      }
+    } catch {
+      setPasswordMessage({ type: "error", text: "Network error setting password." });
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   const handleSendOtp = async () => {
     if (!employee?.email) return;
     setVerifyLoading(true);
@@ -184,6 +213,7 @@ export default function EmployeeDetailPage() {
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="employment">Employment</TabsTrigger>
           <TabsTrigger value="bank">Bank Details</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
 
         <TabsContent value="personal" className="mt-4">
@@ -323,6 +353,40 @@ export default function EmployeeDetailPage() {
                 {renderField("IFSC Code", employee.ifscCode, "ifscCode")}
                 {renderField("UPI ID", employee.upiId, "upiId")}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="security" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Password Management</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 max-w-sm">
+              <p className="text-xs text-muted-foreground">
+                Set a manual password for this employee to allow them to log in to the Employee Portal.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="manualPassword">New Password</Label>
+                <Input
+                  id="manualPassword"
+                  type="text"
+                  placeholder="e.g. CHRI2005"
+                  value={manualPassword}
+                  onChange={(e) => setManualPassword(e.target.value)}
+                />
+              </div>
+              {passwordMessage && (
+                <p className={`text-xs ${passwordMessage.type === "success" ? "text-green-600" : "text-destructive"}`}>
+                  {passwordMessage.text}
+                </p>
+              )}
+              <Button 
+                onClick={handleSetPassword} 
+                disabled={!manualPassword || manualPassword.length < 6 || passwordLoading}
+              >
+                {passwordLoading ? "Setting..." : "Set Password"}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
