@@ -608,9 +608,12 @@ export default function App() {
       });
       if (res.ok) {
         const data = await res.json();
-        
+        let url = data.downloadUrl;
+        if (url.startsWith("/api/")) {
+          url = BASE + url.substring(4);
+        }
         // Open file in new tab to trigger browser download dialog
-        window.open(data.downloadUrl, "_blank");
+        window.open(url, "_blank");
       }
     } catch {
       showFeedback("error", "Download verification failed.");
