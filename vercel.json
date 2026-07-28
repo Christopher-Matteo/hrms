@@ -1,0 +1,7 @@
+{
+  "outputDirectory": "artifacts/hotel-hrms/dist/public",
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
