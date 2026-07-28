@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, AlertCircle, RefreshCw, ScanFace } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
+const BASE = (import.meta as any).env.VITE_API_URL ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
+
 interface FaceEnrollmentProps {
   employeeId: number;
 }
@@ -147,7 +149,7 @@ export default function FaceEnrollment({ employeeId }: FaceEnrollmentProps) {
   // 1. Fetch current registration status
   const checkStatus = async () => {
     try {
-      const res = await fetch(`/api/employees/${employeeId}/face-embedding`);
+      const res = await fetch(`${BASE}/employees/${employeeId}/face-embedding`);
       if (res.ok) {
         const data = await res.json();
         setRegistered(data.registered);
@@ -500,7 +502,7 @@ export default function FaceEnrollment({ employeeId }: FaceEnrollmentProps) {
   const saveEmbedding = async (descriptor: Float32Array) => {
     setLoadingStatus("Saving face embedding securely...");
     try {
-      const res = await fetch(`/api/employees/${employeeId}/face-embedding`, {
+      const res = await fetch(`${BASE}/employees/${employeeId}/face-embedding`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -5,7 +5,7 @@ import { Camera, CheckCircle2, AlertCircle, RefreshCw, ScanFace, LogOut, ArrowRi
 import "./index.css";
 
 const queryClient = new QueryClient();
-const BASE = "/api";
+const BASE = (import.meta as any).env.VITE_API_URL ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
 
 type Branch = { id: number; name: string; address: string; latitude: number | null; longitude: number | null; radius?: number };
 type EmployeeInfo = {
