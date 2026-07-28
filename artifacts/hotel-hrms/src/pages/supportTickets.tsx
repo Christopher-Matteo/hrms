@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { HelpCircle, Clock, CheckCircle2, XCircle, Search, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const BASE = (import.meta as any).env.VITE_API_URL ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
+
 const STATUS_COLORS: Record<string, string> = {
   open: "bg-red-100 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30",
   in_progress: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30",
@@ -36,7 +38,7 @@ export default function SupportTicketsPage() {
   const fetchTickets = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/admin/support-tickets", {
+      const res = await fetch(`${BASE}/admin/support-tickets`, {
         headers: {
           "Authorization": `Bearer ${localStorage.getItem("token")}`
         }
@@ -58,7 +60,7 @@ export default function SupportTicketsPage() {
 
   const handleUpdateStatus = async (id: number, newStatus: string) => {
     try {
-      const res = await fetch(`/api/admin/support-tickets/${id}`, {
+      const res = await fetch(`${BASE}/admin/support-tickets/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

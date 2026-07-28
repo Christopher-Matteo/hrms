@@ -1,7 +1,7 @@
 {
   "outputDirectory": "artifacts/hotel-hrms/dist/public",
-  "cleanUrls": true,
+  "cleanUrls": false,
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!api|assets|models|static|favicon.svg|opengraph.jpg|robots.txt).*)", "destination": "/index.html" }
   ]
 }
