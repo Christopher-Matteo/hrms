@@ -10,6 +10,9 @@ import {
   useGetAdvances,
   useGetAuditLogs
 } from "@workspace/api-client-react";
+
+const BASE = (import.meta as any).env.VITE_API_URL ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -94,7 +97,7 @@ export default function PayrollPage() {
   async function handleMarkPaid(id: number) {
     if (!confirm("Are you sure you want to mark this payroll as PAID? This will recover the calculated salary advances from the database.")) return;
     try {
-      const res = await fetch(`/api/payroll/${id}/pay`, {
+      const res = await fetch(`${BASE}/payroll/${id}/pay`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -115,7 +118,7 @@ export default function PayrollPage() {
 
   async function handleSharePayslip(id: number) {
     try {
-      const res = await fetch(`/api/payroll/${id}/share`, {
+      const res = await fetch(`${BASE}/payroll/${id}/share`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

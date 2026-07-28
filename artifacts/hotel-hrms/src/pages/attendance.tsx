@@ -11,6 +11,8 @@ import { Plus, Filter, UserCheck, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 
+const BASE = (import.meta as any).env.VITE_API_URL ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
+
 const STATUS_COLORS: Record<string, string> = {
   present: "bg-green-100 text-green-700",
   absent: "bg-red-100 text-red-700",
@@ -126,7 +128,7 @@ export default function AttendancePage() {
   async function handleVerifyPhotos(id: number, status: string) {
     setVerifyingPhotos(true);
     try {
-      const res = await fetch(`/api/attendance/${id}/verify-photos`, {
+      const res = await fetch(`${BASE}/attendance/${id}/verify-photos`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

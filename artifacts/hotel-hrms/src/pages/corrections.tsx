@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ClipboardCheck, Clock, CheckCircle2, XCircle, Search, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const BASE = (import.meta as any).env.VITE_API_URL ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
+
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-950/20 dark:text-yellow-400 dark:border-yellow-900/30",
   approved: "bg-green-100 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-400 dark:border-green-900/30",
@@ -41,7 +43,7 @@ export default function CorrectionsPage() {
   const fetchCorrections = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/attendance-corrections", {
+      const res = await fetch(`${BASE}/attendance-corrections`, {
         headers: {
           "Authorization": `Bearer ${localStorage.getItem("token")}`
         }
@@ -63,7 +65,7 @@ export default function CorrectionsPage() {
 
   const handleProcessRequest = async (id: number, status: "approved" | "rejected", rejectRemarks?: string) => {
     try {
-      const res = await fetch(`/api/attendance-corrections/${id}`, {
+      const res = await fetch(`${BASE}/attendance-corrections/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

@@ -1,6 +1,7 @@
 import { useRoute, Link } from "wouter";
 import { useGetPayrollRecord } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
+const BASE = (import.meta as any).env.VITE_API_URL ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
 import { ArrowLeft, Printer, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +42,7 @@ export default function PayslipPage() {
 
   async function handleShare() {
     try {
-      const res = await fetch(`/api/payroll/${id}/share`, {
+      const res = await fetch(`${BASE}/payroll/${id}/share`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
