@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Save } from "lucide-react";
 
+const BASE = (import.meta as any).env.VITE_API_URL ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
+
 const DEPARTMENTS = [
   "Front Office",
   "Housekeeping",
@@ -51,7 +53,7 @@ export default function EmployeeDetailPage() {
     setPasswordLoading(true);
     setPasswordMessage(null);
     try {
-      const res = await fetch(`/api/employees/${id}/password`, {
+      const res = await fetch(`${BASE}/employees/${id}/password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: manualPassword }),
@@ -75,7 +77,7 @@ export default function EmployeeDetailPage() {
     setVerifyLoading(true);
     setVerifyError("");
     try {
-      const res = await fetch(`/api/employees/verify-email/request`, {
+      const res = await fetch(`${BASE}/employees/verify-email/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: employee.email }),
@@ -98,7 +100,7 @@ export default function EmployeeDetailPage() {
     setVerifyLoading(true);
     setVerifyError("");
     try {
-      const res = await fetch(`/api/employees/verify-email/confirm`, {
+      const res = await fetch(`${BASE}/employees/verify-email/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: employee.email, otp: otpInput }),

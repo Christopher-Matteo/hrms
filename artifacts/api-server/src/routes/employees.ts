@@ -251,6 +251,25 @@ router.post("/employees", async (req, res): Promise<void> => {
     })
     .returning();
 
+  // Automatically create a user account with a default password (NAME + DOB Year)
+  const firstFour = firstName.substring(0, 4).toUpperCase();
+  const birthYear = dob ? new Date(dob).getFullYear() : 2000;
+  const defaultPass = `${firstFour}${birthYear}`;
+  const passwordHash = crypto.createHash("sha256").update(defaultPass + "hrms_salt_2024").digest("hex");
+
+  let role = "employee";
+  if (employee.employeeId === "EMP001") role = "hr_manager";
+  else if (employee.employeeId === "EMP003") role = "branch_manager";
+
+  await db.insert(usersTable).values({
+    email: employee.email,
+    passwordHash,
+    name: `${firstName} ${lastName}`,
+    role,
+    branchId: employee.branchId,
+    employeeId: employee.id,
+  });
+
   res.status(201).json(await formatEmployee(employee));
 });
 
