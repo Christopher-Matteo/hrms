@@ -163,32 +163,7 @@ async function seed() {
   }
 
 
-  // Attendance for last 7 days
-  const existingAttendance = await db.select().from(attendanceTable).limit(1);
-  if (existingAttendance.length === 0) {
-    const employees = await db.select().from(employeesTable);
-    const statuses = ["present", "present", "present", "present", "late", "absent", "weekly_off"];
-    
-    for (let dayOffset = 6; dayOffset >= 0; dayOffset--) {
-      const date = new Date(Date.now() - dayOffset * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-      const dayOfWeek = new Date(date).getDay(); // 0 = Sunday
 
-      for (const emp of employees) {
-        const status = dayOfWeek === 0 ? "weekly_off" : statuses[Math.floor(Math.random() * 5)];
-        await db.insert(attendanceTable).values({
-          employeeId: emp.id,
-          date,
-          status,
-          checkIn: status === "present" ? "09:05" : status === "late" ? "09:35" : null,
-          checkOut: ["present", "late"].includes(status) ? "18:10" : null,
-          workingHours: ["present", "late"].includes(status) ? "8" : null,
-          lateMinutes: status === "late" ? 25 : null,
-          overtimeHours: null,
-          remarks: null,
-        });
-      }
-    }
-  }
 
   // Leave requests
   const existingLeaves = await db.select().from(leavesTable).limit(1);
