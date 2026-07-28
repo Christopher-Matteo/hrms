@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { useGetEmployees, useDeleteEmployee } from "@workspace/api-client-react";
+import { useGetEmployees, useDeleteEmployee, useGetBranches } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, Search, Eye, Trash2, Users } from "lucide-react";
+import { UserPlus, Search, Eye, Trash2, Users, Download } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+
+const DEPARTMENTS = ["Front Office", "Housekeeping", "Food & Beverage", "Kitchen", "Security", "Maintenance", "HR", "Finance", "IT", "Sales & Marketing"];
 
 function statusColor(status: string) {
   if (status === "active") return "bg-green-100 text-green-700";
@@ -18,16 +20,77 @@ function statusColor(status: string) {
 export default function EmployeesPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [branchFilter, setBranchFilter] = useState("all");
+  const [deptFilter, setDeptFilter] = useState("all");
   const { user } = useAuth();
   const { data: employees, isLoading, refetch } = useGetEmployees({
     search: search || undefined,
     status: statusFilter !== "all" ? statusFilter : undefined,
   });
+  const { data: branches } = useGetBranches();
   const deleteEmp = useDeleteEmployee();
+
+  const filteredEmployees = employees?.filter(emp => {
+    const matchesBranch = branchFilter === "all" || String(emp.branchId) === branchFilter;
+    const matchesDept = deptFilter === "all" || emp.department === deptFilter;
+    return matchesBranch && matchesDept;
+  });
 
   function handleDelete(id: number, name: string) {
     if (!confirm(`Delete employee ${name}?`)) return;
     deleteEmp.mutate({ id }, { onSuccess: () => refetch() });
+  }
+
+  function exportCSV() {
+    if (!employees?.length) return;
+    const headers = [
+      "Employee ID",
+      "First Name",
+      "Last Name",
+      "Email",
+      "Phone",
+      "Gender",
+      "DOB",
+      "Department",
+      "Designation",
+      "Branch",
+      "Joining Date",
+      "Employment Type",
+      "Salary",
+      "Status"
+    ];
+    
+    const rows = employees.map(emp => [
+      emp.employeeId,
+      emp.firstName,
+      emp.lastName,
+      emp.email,
+      emp.phone,
+      emp.gender,
+      emp.dob,
+      emp.department,
+      emp.designation,
+      emp.branchName ?? "",
+      emp.joiningDate,
+      emp.employmentType,
+      emp.salary,
+      emp.status
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(val => `"${String(val ?? '').replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `employees_export_${new Date().toISOString().split("T")[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   const canManage = ["super_admin", "hr_manager"].includes(user?.role ?? "");
@@ -39,14 +102,19 @@ export default function EmployeesPage() {
           <h1 className="text-xl font-bold">Employees</h1>
           <p className="text-sm text-muted-foreground">{employees?.length ?? 0} total employees</p>
         </div>
-        {canManage && (
-          <Link href="/employees/new">
-            <Button size="sm" className="gap-2">
-              <UserPlus className="w-4 h-4" />
-              Add Employee
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="gap-2" onClick={exportCSV} disabled={!employees?.length}>
+            <Download className="w-4 h-4" />Export CSV
+          </Button>
+          {canManage && (
+            <Link href="/employees/new">
+              <Button size="sm" className="gap-2">
+                <UserPlus className="w-4 h-4" />
+                Add Employee
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-3">
@@ -61,7 +129,7 @@ export default function EmployeesPage() {
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-36">
-            <SelectValue />
+            <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
@@ -70,13 +138,37 @@ export default function EmployeesPage() {
             <SelectItem value="terminated">Terminated</SelectItem>
           </SelectContent>
         </Select>
+
+        <Select value={branchFilter} onValueChange={setBranchFilter}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="All Branches" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Branches</SelectItem>
+            {branches?.map(b => (
+              <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={deptFilter} onValueChange={setDeptFilter}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="All Departments" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Departments</SelectItem>
+            {DEPARTMENTS.map(d => (
+              <SelectItem key={d} value={d}>{d}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-12">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : !employees?.length ? (
+      ) : !filteredEmployees?.length ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Users className="w-10 h-10 text-muted-foreground mb-3" />
           <p className="text-sm font-medium">No employees found</p>
@@ -98,7 +190,7 @@ export default function EmployeesPage() {
                 </tr>
               </thead>
               <tbody>
-                {employees.map((emp) => (
+                {filteredEmployees.map((emp) => (
                   <tr key={emp.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">

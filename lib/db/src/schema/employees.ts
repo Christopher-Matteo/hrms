@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, numeric, date, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, numeric, date, timestamp, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -21,6 +21,8 @@ export const employeesTable = pgTable("employees", {
   joiningDate: date("joining_date", { mode: "string" }).notNull(),
   employmentType: text("employment_type").notNull().default("full_time"), // full_time, part_time, contract, intern
   status: text("status").notNull().default("active"), // active, inactive, terminated
+  accountStatus: text("account_status").default("active").notNull(), // pending_activation, active, blocked, resigned, terminated
+  emailVerified: boolean("email_verified").default(false).notNull(),
   salary: numeric("salary", { precision: 12, scale: 2 }).notNull(),
   bankName: text("bank_name"),
   accountNumber: text("account_number"),

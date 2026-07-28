@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Building2, Layers, Clock, CalendarDays,
   Calendar, FileText, DollarSign, Megaphone, BarChart3, Settings,
   ScrollText, ChevronLeft, Bell, LogOut, Menu, X, ChevronRight,
-  Briefcase, UserCheck, AlertCircle, CreditCard
+  Briefcase, UserCheck, AlertCircle, CreditCard, LifeBuoy, ClipboardCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Advances", href: "/advances", icon: CreditCard },
   { label: "Continue Duty", href: "/continue-duty", icon: Briefcase },
   { label: "Payroll", href: "/payroll", icon: DollarSign },
+  { label: "Corrections Requests", href: "/corrections", icon: ClipboardCheck, roles: ["super_admin", "hr_manager"] },
+  { label: "Support Tickets", href: "/support-tickets", icon: LifeBuoy, roles: ["super_admin", "hr_manager"] },
   { label: "Announcements", href: "/announcements", icon: Megaphone },
   { label: "Reports", href: "/reports", icon: BarChart3, roles: ["super_admin", "hr_manager"] },
   { label: "Audit Logs", href: "/audit-logs", icon: ScrollText, roles: ["super_admin"] },
@@ -78,11 +80,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-background">
+      {/* Backdrop overlay for mobile */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/40 z-25 md:hidden" 
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
         className={cn(
           "fixed left-0 top-0 h-full z-30 flex flex-col border-r border-border bg-card transition-all duration-200",
-          sidebarOpen ? "w-56" : "w-14"
+          sidebarOpen ? "w-56 translate-x-0" : "-translate-x-full md:translate-x-0 w-56 md:w-14"
         )}
       >
         {/* Logo */}
@@ -90,10 +100,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
             <span className="text-white font-bold text-sm">RF</span>
           </div>
-          {sidebarOpen && (
+          {(sidebarOpen || window.innerWidth < 768) && (
             <div className="overflow-hidden">
               <div className="text-sm font-semibold text-foreground truncate">Red Fox Hotel</div>
-              <div className="text-xs text-muted-foreground">HRMS</div>
+              <div className="text-xs text-muted-foreground font-medium">HRMS</div>
             </div>
           )}
         </div>
@@ -103,7 +113,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {visibleNav.map((item) => {
             const active = isActive(item.href);
             return (
-              <Link key={item.href} href={item.href}>
+              <Link key={item.href} href={item.href} onClick={() => { if(window.innerWidth < 768) setSidebarOpen(false); }}>
                 <a
                   className={cn(
                     "flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm transition-colors",
@@ -111,10 +121,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       ? "bg-primary/10 text-primary font-medium"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   )}
-                  title={!sidebarOpen ? item.label : undefined}
+                  title={(!sidebarOpen && window.innerWidth >= 768) ? item.label : undefined}
                 >
                   <item.icon className="w-4 h-4 flex-shrink-0" />
-                  {sidebarOpen && <span className="truncate">{item.label}</span>}
+                  {(sidebarOpen || window.innerWidth < 768) && <span className="truncate">{item.label}</span>}
                 </a>
               </Link>
             );
@@ -140,19 +150,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <div
         className={cn(
-          "flex-1 flex flex-col min-h-screen transition-all duration-200",
-          sidebarOpen ? "ml-56" : "ml-14"
+          "flex-1 flex flex-col min-h-screen transition-all duration-200 ml-0",
+          sidebarOpen ? "md:ml-56" : "md:ml-14"
         )}
       >
         {/* Top header */}
         <header className="sticky top-0 z-20 flex items-center gap-3 px-4 h-14 border-b border-border bg-card/80 backdrop-blur-sm">
+          {/* Desktop Toggle Button */}
           <Button
             variant="ghost"
             size="icon"
-            className="w-8 h-8"
+            className="w-8 h-8 hidden md:flex"
             onClick={() => setSidebarOpen(!sidebarOpen)}
           >
             {sidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          </Button>
+
+          {/* Mobile Hamburger Toggle Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-8 h-8 md:hidden"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+          >
+            {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </Button>
 
           <div className="flex-1" />
@@ -173,7 +194,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="flex items-center justify-between px-3 py-2">
                 <span className="text-sm font-semibold">Notifications</span>
                 {unreadCount > 0 && (
-                  <Button variant="ghost" className="h-auto py-0.5 px-2 text-xs" onClick={() => markAllRead.mutate({})}>
+                  <Button variant="ghost" className="h-auto py-0.5 px-2 text-xs" onClick={() => markAllRead.mutate(undefined)}>
                     Mark all read
                   </Button>
                 )}

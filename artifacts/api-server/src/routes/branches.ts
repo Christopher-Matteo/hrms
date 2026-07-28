@@ -4,6 +4,29 @@ import { eq, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
+async function geocodeAddress(address: string): Promise<{ latitude: string | null; longitude: string | null }> {
+  try {
+    const query = encodeURIComponent(address);
+    const url = `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`;
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "RedFoxHotelHRMS/1.0"
+      }
+    });
+    if (!res.ok) return { latitude: null, longitude: null };
+    const data = await res.json() as any[];
+    if (data && data.length > 0) {
+      return {
+        latitude: String(data[0].lat),
+        longitude: String(data[0].lon)
+      };
+    }
+  } catch (err) {
+    console.error("Geocoding failed:", err);
+  }
+  return { latitude: null, longitude: null };
+}
+
 router.get("/branches", async (req, res): Promise<void> => {
   const branches = await db.select().from(branchesTable).orderBy(branchesTable.name);
 
@@ -44,9 +67,20 @@ router.post("/branches", async (req, res): Promise<void> => {
     return;
   }
 
+  const coords = await geocodeAddress(address);
+
   const [branch] = await db
     .insert(branchesTable)
-    .values({ name, address, phone, email, managerId: managerId ?? null })
+    .values({ 
+      name, 
+      address, 
+      phone, 
+      email, 
+      managerId: managerId ?? null,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      radius: "200.00"
+    })
     .returning();
 
   res.status(201).json({
@@ -98,10 +132,18 @@ router.patch("/branches/:id", async (req, res): Promise<void> => {
 
   const updates: Record<string, unknown> = {};
   if (req.body.name !== undefined) updates.name = req.body.name;
-  if (req.body.address !== undefined) updates.address = req.body.address;
+  if (req.body.address !== undefined) {
+    updates.address = req.body.address;
+    const coords = await geocodeAddress(req.body.address);
+    if (coords.latitude && coords.longitude) {
+      updates.latitude = coords.latitude;
+      updates.longitude = coords.longitude;
+    }
+  }
   if (req.body.phone !== undefined) updates.phone = req.body.phone;
   if (req.body.email !== undefined) updates.email = req.body.email;
   if (req.body.managerId !== undefined) updates.managerId = req.body.managerId;
+  updates.radius = "200.00";
 
   const [branch] = await db
     .update(branchesTable)

@@ -14,7 +14,7 @@ function AttendanceReport() {
   const { data: report, isLoading } = useGetAttendanceReport({
     month: month || undefined,
     branchId: branchFilter !== "all" ? Number(branchFilter) : undefined,
-  });
+  } as any);
 
   return (
     <div className="space-y-4">
@@ -78,7 +78,7 @@ function PayrollReport() {
   const { data: report, isLoading } = useGetPayrollReport({
     month: month || undefined,
     branchId: branchFilter !== "all" ? Number(branchFilter) : undefined,
-  });
+  } as any);
 
   const totalNet = report?.reduce((s: number, r: any) => s + Number(r.netSalary), 0) ?? 0;
 
@@ -140,7 +140,7 @@ function PayrollReport() {
 
 function LeaveReport() {
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
-  const { data: report, isLoading } = useGetLeaveReport({ month: month || undefined });
+  const { data: report, isLoading } = useGetLeaveReport({ month: month || undefined } as any);
 
   return (
     <div className="space-y-4">

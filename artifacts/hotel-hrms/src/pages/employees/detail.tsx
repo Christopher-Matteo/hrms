@@ -1,5 +1,5 @@
 import { useRoute, Link } from "wouter";
-import { useGetEmployee, useUpdateEmployee } from "@workspace/api-client-react";
+import { useGetEmployee, useUpdateEmployee, useGetBranches, useGetShifts, useGetWeeklyOffPolicies } from "@workspace/api-client-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,13 +10,85 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Save } from "lucide-react";
 
+const DEPARTMENTS = [
+  "Front Office",
+  "Housekeeping",
+  "Food & Beverage",
+  "Kitchen",
+  "Security",
+  "Maintenance",
+  "HR",
+  "Finance",
+  "IT",
+  "Sales & Marketing",
+];
+
 export default function EmployeeDetailPage() {
   const [, params] = useRoute("/employees/:id");
   const id = Number(params?.id);
   const { data: employee, isLoading, refetch } = useGetEmployee(id);
+  const { data: branches } = useGetBranches();
+  const { data: shifts } = useGetShifts();
+  const { data: policies } = useGetWeeklyOffPolicies();
   const updateEmployee = useUpdateEmployee();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({});
+
+  // Email verification dialog states
+  const [verificationOpen, setVerificationOpen] = useState(false);
+  const [verificationStep, setVerificationStep] = useState<1 | 2>(1);
+  const [otpInput, setOtpInput] = useState("");
+  const [verifyError, setVerifyError] = useState("");
+  const [verifyLoading, setVerifyLoading] = useState(false);
+
+  const handleSendOtp = async () => {
+    if (!employee?.email) return;
+    setVerifyLoading(true);
+    setVerifyError("");
+    try {
+      const res = await fetch(`/api/employees/verify-email/request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: employee.email }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setVerifyError(d.error ?? "Failed to send OTP code.");
+      } else {
+        setVerificationStep(2);
+      }
+    } catch {
+      setVerifyError("Network error.");
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpInput || !employee?.email) return;
+    setVerifyLoading(true);
+    setVerifyError("");
+    try {
+      const res = await fetch(`/api/employees/verify-email/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: employee.email, otp: otpInput }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setVerifyError(d.error ?? "Invalid OTP code.");
+      } else {
+        setVerificationOpen(false);
+        setVerificationStep(1);
+        setOtpInput("");
+        refetch();
+      }
+    } catch {
+      setVerifyError("Network error.");
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
 
   function startEdit() {
     if (!employee) return;
@@ -33,6 +105,18 @@ export default function EmployeeDetailPage() {
       accountNumber: employee.accountNumber,
       ifscCode: employee.ifscCode,
       upiId: employee.upiId,
+      gender: employee.gender,
+      dob: employee.dob,
+      emergencyContact: employee.emergencyContact,
+      panNumber: employee.panNumber,
+      aadhaarNumber: employee.aadhaarNumber,
+      employeeId: employee.employeeId,
+      department: employee.department,
+      branchId: employee.branchId,
+      shiftId: employee.shiftId,
+      weeklyOffPolicyId: employee.weeklyOffPolicyId,
+      joiningDate: employee.joiningDate,
+      employmentType: employee.employmentType,
     });
     setEditing(true);
   }
@@ -50,7 +134,7 @@ export default function EmployeeDetailPage() {
 
   if (!employee) return <div className="text-center py-12 text-muted-foreground">Employee not found</div>;
 
-  const Field = ({ label, value, field, type = "text" }: { label: string; value?: string | number | null; field?: string; type?: string }) => (
+  const renderField = (label: string, value?: string | number | null, field?: string, type = "text") => (
     <div>
       <Label className="text-xs text-muted-foreground">{label}</Label>
       {editing && field ? (
@@ -107,18 +191,34 @@ export default function EmployeeDetailPage() {
             <CardHeader><CardTitle className="text-sm">Personal Information</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <Field label="First Name" value={employee.firstName} field="firstName" />
-                <Field label="Last Name" value={employee.lastName} field="lastName" />
-                <Field label="Email" value={employee.email} field="email" type="email" />
-                <Field label="Phone" value={employee.phone} field="phone" />
-                <Field label="Gender" value={employee.gender} />
-                <Field label="Date of Birth" value={employee.dob} />
+                {renderField("First Name", employee.firstName, "firstName")}
+                {renderField("Last Name", employee.lastName, "lastName")}
+                
+                {renderField("Email", employee.email, "email", "email")}
+
+                {renderField("Phone", employee.phone, "phone")}
+                {editing ? (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Gender</Label>
+                    <Select value={String(form.gender ?? "male")} onValueChange={(v) => setForm(f => ({ ...f, gender: v }))}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  renderField("Gender", employee.gender)
+                )}
+                {renderField("Date of Birth", employee.dob, "dob", "date")}
                 <div className="col-span-2">
-                  <Field label="Address" value={employee.address} field="address" />
+                  {renderField("Address", employee.address, "address")}
                 </div>
-                <Field label="Emergency Contact" value={employee.emergencyContact} />
-                <Field label="PAN Number" value={employee.panNumber} />
-                <Field label="Aadhaar Number" value={employee.aadhaarNumber} />
+                {renderField("Emergency Contact", employee.emergencyContact, "emergencyContact")}
+                {renderField("PAN Number", employee.panNumber, "panNumber")}
+                {renderField("Aadhaar Number", employee.aadhaarNumber, "aadhaarNumber")}
               </div>
             </CardContent>
           </Card>
@@ -129,15 +229,70 @@ export default function EmployeeDetailPage() {
             <CardHeader><CardTitle className="text-sm">Employment Information</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <Field label="Employee ID" value={employee.employeeId} />
-                <Field label="Department" value={employee.department} />
-                <Field label="Designation" value={employee.designation} field="designation" />
-                <Field label="Branch" value={employee.branchName} />
-                <Field label="Shift" value={employee.shiftName} />
-                <Field label="Weekly Off Policy" value={employee.weeklyOffPolicyName} />
-                <Field label="Joining Date" value={employee.joiningDate} />
-                <Field label="Employment Type" value={employee.employmentType} />
-                <Field label="Salary (₹/month)" value={Number(employee.salary).toLocaleString("en-IN")} field="salary" type="number" />
+                {renderField("Employee ID", employee.employeeId, "employeeId")}
+                {editing ? (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Department</Label>
+                    <Select value={String(form.department ?? "")} onValueChange={(v) => setForm(f => ({ ...f, department: v }))}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select department" /></SelectTrigger>
+                      <SelectContent>{DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  renderField("Department", employee.department)
+                )}
+                {renderField("Designation", employee.designation, "designation")}
+                {editing ? (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Branch</Label>
+                    <Select value={String(form.branchId ?? "")} onValueChange={(v) => setForm(f => ({ ...f, branchId: v ? Number(v) : null }))}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select branch" /></SelectTrigger>
+                      <SelectContent>{branches?.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  renderField("Branch", employee.branchName)
+                )}
+                {editing ? (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Shift</Label>
+                    <Select value={String(form.shiftId ?? "")} onValueChange={(v) => setForm(f => ({ ...f, shiftId: v ? Number(v) : null }))}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select shift" /></SelectTrigger>
+                      <SelectContent>{shifts?.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  renderField("Shift", employee.shiftName)
+                )}
+                {editing ? (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Weekly Off Policy</Label>
+                    <Select value={String(form.weeklyOffPolicyId ?? "")} onValueChange={(v) => setForm(f => ({ ...f, weeklyOffPolicyId: v ? Number(v) : null }))}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select policy" /></SelectTrigger>
+                      <SelectContent>{policies?.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  renderField("Weekly Off Policy", employee.weeklyOffPolicyName)
+                )}
+                {renderField("Joining Date", employee.joiningDate, "joiningDate", "date")}
+                {editing ? (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Employment Type</Label>
+                    <Select value={String(form.employmentType ?? "")} onValueChange={(v) => setForm(f => ({ ...f, employmentType: v }))}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="full_time">Full Time</SelectItem>
+                        <SelectItem value="part_time">Part Time</SelectItem>
+                        <SelectItem value="contract">Contract</SelectItem>
+                        <SelectItem value="intern">Intern</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  renderField("Employment Type", employee.employmentType)
+                )}
+                {renderField("Salary (₹/month)", Number(employee.salary).toLocaleString("en-IN"), "salary", "number")}
                 {editing ? (
                   <div>
                     <Label className="text-xs text-muted-foreground">Status</Label>
@@ -151,7 +306,7 @@ export default function EmployeeDetailPage() {
                     </Select>
                   </div>
                 ) : (
-                  <Field label="Status" value={employee.status} />
+                  renderField("Status", employee.status)
                 )}
               </div>
             </CardContent>
@@ -163,15 +318,64 @@ export default function EmployeeDetailPage() {
             <CardHeader><CardTitle className="text-sm">Bank Details</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <Field label="Bank Name" value={employee.bankName} field="bankName" />
-                <Field label="Account Number" value={employee.accountNumber} field="accountNumber" />
-                <Field label="IFSC Code" value={employee.ifscCode} field="ifscCode" />
-                <Field label="UPI ID" value={employee.upiId} field="upiId" />
+                {renderField("Bank Name", employee.bankName, "bankName")}
+                {renderField("Account Number", employee.accountNumber, "accountNumber")}
+                {renderField("IFSC Code", employee.ifscCode, "ifscCode")}
+                {renderField("UPI ID", employee.upiId, "upiId")}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {verificationOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm bg-background border rounded-2xl shadow-xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b pb-2">
+              <h3 className="font-semibold text-sm">Verify Email Address</h3>
+              <button 
+                onClick={() => { setVerificationOpen(false); setVerificationStep(1); setOtpInput(""); setVerifyError(""); }} 
+                className="text-muted-foreground hover:text-foreground text-sm font-semibold"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <p className="text-xs text-muted-foreground">
+              Verify registered email address: <strong>{employee.email}</strong>
+            </p>
+
+            {verificationStep === 1 ? (
+              <div className="space-y-3 pt-2">
+                <Button onClick={handleSendOtp} disabled={verifyLoading} className="w-full">
+                  {verifyLoading ? "Sending..." : "Send Verification OTP"}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3 pt-2">
+                <p className="text-[10px] text-zinc-500">Check server console logs for the mocked 6-digit OTP code.</p>
+                <div className="space-y-1">
+                  <Label className="text-xs">Enter 6-Digit OTP</Label>
+                  <Input 
+                    type="text" 
+                    value={otpInput} 
+                    onChange={(e) => setOtpInput(e.target.value)} 
+                    placeholder="123456" 
+                    className="text-center font-mono font-bold tracking-widest text-base"
+                  />
+                </div>
+                <Button onClick={handleVerifyOtp} disabled={verifyLoading || !otpInput} className="w-full">
+                  {verifyLoading ? "Verifying..." : "Verify OTP"}
+                </Button>
+              </div>
+            )}
+
+            {verifyError && (
+              <p className="text-xs text-destructive bg-destructive/10 p-2 rounded-lg border border-destructive/20">{verifyError}</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

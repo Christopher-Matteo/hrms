@@ -1,10 +1,16 @@
 import { Router, type IRouter } from "express";
-import { db, attendanceTable, employeesTable } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { db, attendanceTable, employeesTable, auditLogsTable, attendanceCorrectionsTable, attendanceCorrectionHistoryTable, branchesTable } from "@workspace/db";
+import { eq, and, sql, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-function formatRecord(r: typeof attendanceTable.$inferSelect, employeeName?: string | null, employeeCode?: string | null) {
+function formatRecord(
+  r: typeof attendanceTable.$inferSelect,
+  employeeName?: string | null,
+  employeeCode?: string | null,
+  homeBranchName?: string | null,
+  attendanceBranchName?: string | null
+) {
   return {
     id: r.id,
     employeeId: r.employeeId,
@@ -19,6 +25,15 @@ function formatRecord(r: typeof attendanceTable.$inferSelect, employeeName?: str
     lateMinutes: r.lateMinutes,
     overtimeHours: r.overtimeHours ? Number(r.overtimeHours) : null,
     remarks: r.remarks,
+    checkInPhoto: r.checkInPhoto,
+    checkOutPhoto: r.checkOutPhoto,
+    photoVerified: r.photoVerified,
+    faceVerificationStatus: r.faceVerificationStatus,
+    source: r.source,
+    homeBranchId: r.homeBranchId,
+    attendanceBranchId: r.attendanceBranchId,
+    homeBranchName: homeBranchName ?? null,
+    attendanceBranchName: attendanceBranchName ?? null,
     createdAt: r.createdAt.toISOString(),
   };
 }
@@ -30,7 +45,7 @@ router.get("/attendance", async (req, res): Promise<void> => {
   if (employeeId) conditions.push(eq(attendanceTable.employeeId, Number(employeeId)));
   if (date) conditions.push(eq(attendanceTable.date, String(date)));
   if (month) {
-    conditions.push(sql`${attendanceTable.date} like ${String(month) + "%"}`);
+    conditions.push(sql`${attendanceTable.date}::text like ${String(month) + "%"}`);
   }
   if (status) conditions.push(eq(attendanceTable.status, String(status)));
 
@@ -38,17 +53,32 @@ router.get("/attendance", async (req, res): Promise<void> => {
   if (conditions.length > 0) query = query.where(and(...conditions));
   const records = await query.orderBy(attendanceTable.date);
 
-  // Enrich with employee names
+  // Enrich with employee names and branch names
   const result = await Promise.all(
     records.map(async (r) => {
       const [emp] = await db
         .select({ firstName: employeesTable.firstName, lastName: employeesTable.lastName, employeeId: employeesTable.employeeId })
         .from(employeesTable)
         .where(eq(employeesTable.id, r.employeeId));
+
+      let homeBranchName = null;
+      if (r.homeBranchId) {
+        const [hb] = await db.select({ name: branchesTable.name }).from(branchesTable).where(eq(branchesTable.id, r.homeBranchId));
+        homeBranchName = hb?.name ?? null;
+      }
+
+      let attendanceBranchName = null;
+      if (r.attendanceBranchId) {
+        const [ab] = await db.select({ name: branchesTable.name }).from(branchesTable).where(eq(branchesTable.id, r.attendanceBranchId));
+        attendanceBranchName = ab?.name ?? null;
+      }
+
       return formatRecord(
         r,
         emp ? `${emp.firstName} ${emp.lastName}` : null,
-        emp?.employeeId ?? null
+        emp?.employeeId ?? null,
+        homeBranchName,
+        attendanceBranchName
       );
     })
   );
@@ -57,27 +87,83 @@ router.get("/attendance", async (req, res): Promise<void> => {
 });
 
 router.post("/attendance", async (req, res): Promise<void> => {
-  const { employeeId, date, status, checkIn, checkOut, workingHours, breakTime, lateMinutes, overtimeHours, remarks } = req.body;
+  const { employeeId, date, status, checkIn, checkOut, workingHours, breakTime, lateMinutes, overtimeHours, remarks, source, adminName, adminId } = req.body;
   if (!employeeId || !date || !status) {
     res.status(400).json({ error: "Missing required fields" });
     return;
   }
 
-  const [record] = await db
-    .insert(attendanceTable)
-    .values({
-      employeeId: Number(employeeId),
-      date,
-      status,
-      checkIn: checkIn ?? null,
-      checkOut: checkOut ?? null,
-      workingHours: workingHours != null ? String(workingHours) : null,
-      breakTime: breakTime != null ? String(breakTime) : null,
-      lateMinutes: lateMinutes ?? null,
-      overtimeHours: overtimeHours != null ? String(overtimeHours) : null,
-      remarks: remarks ?? null,
-    })
-    .returning();
+  // Check if attendance already exists for this employee and date
+  const [existing] = await db
+    .select()
+    .from(attendanceTable)
+    .where(
+      and(
+        eq(attendanceTable.employeeId, Number(employeeId)),
+        eq(attendanceTable.date, date)
+      )
+    );
+
+  let record;
+  const sourceValue = source || "MANUAL";
+
+  if (existing) {
+    [record] = await db
+      .update(attendanceTable)
+      .set({
+        status,
+        checkIn: checkIn ?? null,
+        checkOut: checkOut ?? null,
+        workingHours: workingHours != null ? String(workingHours) : null,
+        breakTime: breakTime != null ? String(breakTime) : null,
+        lateMinutes: lateMinutes ?? null,
+        overtimeHours: overtimeHours != null ? String(overtimeHours) : null,
+        remarks: remarks ?? null,
+        source: sourceValue,
+        gpsVerified: true,
+        faceVerified: true,
+        livenessVerified: true,
+      })
+      .where(eq(attendanceTable.id, existing.id))
+      .returning();
+  } else {
+    [record] = await db
+      .insert(attendanceTable)
+      .values({
+        employeeId: Number(employeeId),
+        date,
+        status,
+        checkIn: checkIn ?? null,
+        checkOut: checkOut ?? null,
+        workingHours: workingHours != null ? String(workingHours) : null,
+        breakTime: breakTime != null ? String(breakTime) : null,
+        lateMinutes: lateMinutes ?? null,
+        overtimeHours: overtimeHours != null ? String(overtimeHours) : null,
+        remarks: remarks ?? null,
+        source: sourceValue,
+        gpsVerified: true,
+        faceVerified: true,
+        livenessVerified: true,
+      })
+      .returning();
+  }
+
+  // Audit logging for manual updates
+  if (sourceValue === "MANUAL") {
+    await db.insert(auditLogsTable).values({
+      userId: adminId ? Number(adminId) : null,
+      userName: adminName || "Admin/HR",
+      action: existing ? "updated" : "created",
+      entity: "attendance",
+      entityId: record.id,
+      changes: JSON.stringify({
+        date,
+        status,
+        reason: remarks,
+        addedBy: adminName || "Admin/HR",
+      }),
+    });
+  }
 
   const [emp] = await db
     .select({ firstName: employeesTable.firstName, lastName: employeesTable.lastName, employeeId: employeesTable.employeeId })
@@ -100,7 +186,7 @@ router.get("/attendance/calendar", async (req, res): Promise<void> => {
     .where(
       and(
         eq(attendanceTable.employeeId, Number(employeeId)),
-        sql`${attendanceTable.date} like ${String(month) + "%"}`
+        sql`${attendanceTable.date}::text like ${String(month) + "%"}`
       )
     )
     .orderBy(attendanceTable.date);
@@ -143,6 +229,8 @@ router.patch("/attendance/:id", async (req, res): Promise<void> => {
   if (req.body.lateMinutes !== undefined) updates.lateMinutes = req.body.lateMinutes;
   if (req.body.overtimeHours !== undefined) updates.overtimeHours = req.body.overtimeHours != null ? String(req.body.overtimeHours) : null;
   if (req.body.remarks !== undefined) updates.remarks = req.body.remarks;
+  if (req.body.faceVerificationStatus !== undefined) updates.faceVerificationStatus = req.body.faceVerificationStatus;
+  if (req.body.photoVerified !== undefined) updates.photoVerified = req.body.photoVerified;
 
   const [record] = await db
     .update(attendanceTable)
@@ -154,7 +242,20 @@ router.patch("/attendance/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Record not found" });
     return;
   }
-  res.json(formatRecord(record));
+
+  let homeBranchName = null;
+  if (record.homeBranchId) {
+    const [hb] = await db.select({ name: branchesTable.name }).from(branchesTable).where(eq(branchesTable.id, record.homeBranchId));
+    homeBranchName = hb?.name ?? null;
+  }
+
+  let attendanceBranchName = null;
+  if (record.attendanceBranchId) {
+    const [ab] = await db.select({ name: branchesTable.name }).from(branchesTable).where(eq(branchesTable.id, record.attendanceBranchId));
+    attendanceBranchName = ab?.name ?? null;
+  }
+
+  res.json(formatRecord(record, null, null, homeBranchName, attendanceBranchName));
 });
 
 router.delete("/attendance/:id", async (req, res): Promise<void> => {
@@ -163,6 +264,169 @@ router.delete("/attendance/:id", async (req, res): Promise<void> => {
 
   await db.delete(attendanceTable).where(eq(attendanceTable.id, id));
   res.sendStatus(204);
+});
+
+router.post("/attendance/:id/verify-photos", async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  const { status } = req.body; // "Verified" | "Not Verified" | "Pending Review"
+
+  const [existing] = await db
+    .select()
+    .from(attendanceTable)
+    .where(eq(attendanceTable.id, id));
+
+  if (!existing) {
+    res.status(404).json({ error: "Attendance record not found" });
+    return;
+  }
+
+  const targetStatus = status || "Verified";
+  const isVerified = targetStatus === "Verified";
+
+  const updatedRemarks = existing.remarks
+    ? `${existing.remarks} [Face verification: ${targetStatus}]`
+    : `[Face verification: ${targetStatus}]`;
+
+  const [record] = await db
+    .update(attendanceTable)
+    .set({
+      photoVerified: isVerified,
+      faceVerificationStatus: targetStatus,
+      remarks: updatedRemarks,
+    })
+    .where(eq(attendanceTable.id, id))
+    .returning();
+
+  let homeBranchName = null;
+  if (record.homeBranchId) {
+    const [hb] = await db.select({ name: branchesTable.name }).from(branchesTable).where(eq(branchesTable.id, record.homeBranchId));
+    homeBranchName = hb?.name ?? null;
+  }
+
+  let attendanceBranchName = null;
+  if (record.attendanceBranchId) {
+    const [ab] = await db.select({ name: branchesTable.name }).from(branchesTable).where(eq(branchesTable.id, record.attendanceBranchId));
+    attendanceBranchName = ab?.name ?? null;
+  }
+
+  res.json({ success: true, record: formatRecord(record, null, null, homeBranchName, attendanceBranchName) });
+});
+
+router.get("/attendance-corrections", async (req, res): Promise<void> => {
+  try {
+    const list = await db
+      .select({
+        id: attendanceCorrectionsTable.id,
+        employeeId: attendanceCorrectionsTable.employeeId,
+        attendanceId: attendanceCorrectionsTable.attendanceId,
+        date: attendanceCorrectionsTable.date,
+        requestedCheckIn: attendanceCorrectionsTable.requestedCheckIn,
+        requestedCheckOut: attendanceCorrectionsTable.requestedCheckOut,
+        reason: attendanceCorrectionsTable.reason,
+        status: attendanceCorrectionsTable.status,
+        createdAt: attendanceCorrectionsTable.createdAt,
+        employeeName: sql<string>`concat(${employeesTable.firstName}, ' ', ${employeesTable.lastName})`,
+        employeeCode: employeesTable.employeeId
+      })
+      .from(attendanceCorrectionsTable)
+      .innerJoin(employeesTable, eq(attendanceCorrectionsTable.employeeId, employeesTable.id))
+      .orderBy(sql`${attendanceCorrectionsTable.createdAt} desc`);
+    
+    res.json(list);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to load corrections list" });
+  }
+});
+
+router.patch("/attendance-corrections/:id", async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  const { status, remarks } = req.body;
+
+  if (!["approved", "rejected"].includes(status)) {
+    res.status(400).json({ error: "Invalid status" });
+    return;
+  }
+
+  try {
+    const [correction] = await db
+      .select()
+      .from(attendanceCorrectionsTable)
+      .where(eq(attendanceCorrectionsTable.id, id));
+
+    if (!correction) {
+      res.status(404).json({ error: "Correction request not found" });
+      return;
+    }
+
+    if (correction.status !== "pending") {
+      res.status(400).json({ error: "Request is already processed" });
+      return;
+    }
+
+    if (status === "approved") {
+      const checkIn = correction.requestedCheckIn;
+      const checkOut = correction.requestedCheckOut;
+
+      const [existingAttendance] = await db
+        .select()
+        .from(attendanceTable)
+        .where(and(eq(attendanceTable.employeeId, correction.employeeId), eq(attendanceTable.date, correction.date)));
+
+      if (existingAttendance) {
+        await db
+          .update(attendanceTable)
+          .set({
+            checkIn,
+            checkOut,
+            status: "present",
+            source: "MANUAL",
+            remarks: remarks || correction.reason
+          })
+          .where(eq(attendanceTable.id, existingAttendance.id));
+      } else {
+        await db.insert(attendanceTable).values({
+          employeeId: correction.employeeId,
+          date: correction.date,
+          checkIn,
+          checkOut,
+          status: "present",
+          source: "MANUAL",
+          remarks: remarks || correction.reason,
+          gpsVerified: false,
+          faceVerified: false,
+          livenessVerified: false
+        });
+      }
+    }
+
+    const [updatedCorrection] = await db
+      .update(attendanceCorrectionsTable)
+      .set({ status })
+      .where(eq(attendanceCorrectionsTable.id, id))
+      .returning();
+
+    await db.insert(attendanceCorrectionHistoryTable).values({
+      correctionId: id,
+      action: status === "approved" ? "hr_approved" : "rejected",
+      newValue: JSON.stringify({ status, remarks }),
+    });
+
+    await db.insert(auditLogsTable).values({
+      action: status === "approved" ? "approve_correction" : "reject_correction",
+      entity: "attendance",
+      entityId: correction.employeeId,
+      changes: JSON.stringify({ correctionId: id, date: correction.date, status, remarks }),
+      userName: "HR/Admin"
+    });
+
+    res.json({ success: true, correction: updatedCorrection });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to process correction request" });
+  }
 });
 
 export default router;
