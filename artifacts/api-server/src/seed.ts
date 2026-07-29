@@ -1,4 +1,4 @@
-import { db, usersTable, branchesTable, departmentsTable, shiftsTable, weeklyOffPoliciesTable, employeesTable, attendanceTable, leavesTable, advancesTable, announcementsTable, notificationsTable, holidaysTable, settingsTable, auditLogsTable } from "@workspace/db";
+import { db, usersTable, branchesTable, departmentsTable, shiftsTable, weeklyOffPoliciesTable, employeesTable, attendanceTable, leavesTable, advancesTable, announcementsTable, notificationsTable, holidaysTable, settingsTable, auditLogsTable, payrollTable, documentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import * as crypto from "crypto";
 
@@ -14,6 +14,8 @@ async function seed() {
   await db.delete(attendanceTable);
   await db.delete(leavesTable);
   await db.delete(advancesTable);
+  await db.delete(documentsTable);
+  await db.delete(payrollTable);
   await db.delete(employeesTable);
   await db.delete(usersTable);
   await db.delete(branchesTable);
