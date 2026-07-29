@@ -48,7 +48,7 @@ export async function ensureBucketExists() {
       logger.info(`Supabase bucket check status: ${res.status}. Msg: ${errText}`);
     }
   } catch (err) {
-    logger.error("Error ensuring Supabase Storage bucket exists:", err);
+    logger.error(err as any, "Error ensuring Supabase Storage bucket exists:");
   }
 }
 
@@ -104,7 +104,7 @@ export async function uploadFile(key: string, buffer: Buffer, mimeType: string):
       logger.info(`Successfully uploaded ${key} to Supabase Storage.`);
       return { provider: "supabase", key };
     } catch (err) {
-      logger.error("Supabase upload failed, falling back to local storage:", err);
+      logger.error(err as any, "Supabase upload failed, falling back to local storage:");
     }
   }
 
@@ -136,7 +136,7 @@ export async function downloadFile(key: string, provider: string): Promise<Buffe
       }
       logger.error(`Failed to download ${key} from Supabase: ${await res.text()}`);
     } catch (err) {
-      logger.error(`Error fetching ${key} from Supabase storage:`, err);
+      logger.error(err as any, `Error fetching ${key} from Supabase storage:`);
     }
   }
 
@@ -263,7 +263,7 @@ export function generatePayslipPdf(payroll: any, emp: any, branch: any): Promise
 
       doc.end();
     } catch (error) {
-      logger.error("Error generating payslip PDF:", error);
+      logger.error(error as any, "Error generating payslip PDF:");
       reject(error);
     }
   });
