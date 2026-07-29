@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, payrollTable, employeesTable, attendanceTable, advancesTable, continueDutiesTable, branchesTable, settingsTable, holidaysTable, documentsTable } from "@workspace/db";
+import { db, payrollTable, employeesTable, attendanceTable, advancesTable, continueDutiesTable, branchesTable, settingsTable, holidaysTable, documentsTable, weeklyOffPoliciesTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { generatePayslipPdf, uploadFile } from "../lib/storage";
 
@@ -43,21 +43,77 @@ async function syncDraftPayroll(
     return a;
   });
 
-  const presentDays = attendance.filter(a => ["present", "late", "overtime", "continue_duty"].includes(a.status)).length;
-  const absentDaysCount = attendance.filter(a => a.status === "absent").length;
-  const halfDayCount = attendance.filter(a => a.status === "half_day").length;
-  const weeklyOffDays = attendance.filter(a => a.status === "weekly_off").length;
-  const leaveDays = attendance.filter(a => ["paid_leave", "sick_leave", "half_day"].includes(a.status)).length;
+  // Load employee's weekly off policy
+  let offDays: string[] = ["Sunday"]; // default fallback
+  if (emp.weeklyOffPolicyId) {
+    const [policy] = await db.select().from(weeklyOffPoliciesTable).where(eq(weeklyOffPoliciesTable.id, emp.weeklyOffPolicyId));
+    if (policy?.offDays) {
+      try {
+        offDays = JSON.parse(policy.offDays);
+      } catch (e) {
+        // use fallback
+      }
+    }
+  }
+
+  // Load holidays
+  const holidays = preFetched?.holidays ?? (await db.select().from(holidaysTable));
+  const employeeHolidays = holidays.filter(h => !h.branchId || h.branchId === emp.branchId);
+  const holidayDates = new Set(employeeHolidays.map(h => h.date));
+
+  // Determine statuses for every day of the month to handle missing attendance logs
+  const totalDays = getDaysInMonth(record.month);
+  
+  let presentDays = 0;
+  let absentDaysCount = 0;
+  let halfDayCount = 0;
+  let weeklyOffDays = 0;
+  let leaveDays = 0;
+  let holidayDays = 0;
+
+  for (let day = 1; day <= totalDays; day++) {
+    const dateStr = `${record.month}-${String(day).padStart(2, "0")}`;
+    const [year, m, d] = dateStr.split("-").map(Number);
+    const dateObj = new Date(year, m - 1, d);
+    const dayName = dateObj.toLocaleDateString("en-US", { weekday: "long" });
+
+    const att = attendance.find(a => a.date === dateStr);
+    
+    let status = "absent";
+    if (att) {
+      status = att.status;
+    } else if (holidayDates.has(dateStr)) {
+      status = "public_holiday";
+    } else if (offDays.includes(dayName)) {
+      status = "weekly_off";
+    }
+
+    if (["present", "late", "overtime", "continue_duty"].includes(status)) {
+      presentDays++;
+    } else if (status === "absent") {
+      absentDaysCount++;
+    } else if (status === "half_day") {
+      halfDayCount++;
+    } else if (status === "weekly_off") {
+      weeklyOffDays++;
+    } else if (status === "public_holiday") {
+      holidayDays++;
+    } else if (["paid_leave", "sick_leave"].includes(status)) {
+      leaveDays++;
+    }
+  }
+
   const manualAttendanceCount = attendance.filter(a => a.source === "MANUAL").length;
 
   const basicSalary = Number(emp.salary);
-  const totalDays = getDaysInMonth(record.month);
   const dailySalary = basicSalary / totalDays;
 
-  const unpaidDays = absentDaysCount + 0.5 * halfDayCount;
+  // Paid days: worked days, paid leaves, weekly offs, and public holidays
+  const paidDays = presentDays + weeklyOffDays + holidayDays + leaveDays + 0.5 * halfDayCount;
+  const unpaidDays = totalDays - paidDays;
   const absentDeduction = Number((dailySalary * unpaidDays).toFixed(2));
   const earnedSalary = Number((basicSalary - absentDeduction).toFixed(2));
-  const payableDays = totalDays - unpaidDays;
+  const payableDays = paidDays;
 
   const duties = await db.select().from(continueDutiesTable)
     .where(and(
@@ -93,7 +149,7 @@ async function syncDraftPayroll(
     record.presentDays !== presentDays ||
     record.absentDays !== absentDaysCount ||
     record.weeklyOffDays !== weeklyOffDays ||
-    record.leaveDays !== leaveDays ||
+    record.leaveDays !== (leaveDays + halfDayCount) ||
     record.manualAttendanceCount !== manualAttendanceCount ||
     record.continueDutyDays !== continueDutyDays ||
     Math.abs(Number(record.continueDutyAmount) - continueDutyAmount) > 0.01 ||
@@ -115,7 +171,7 @@ async function syncDraftPayroll(
         presentDays,
         absentDays: absentDaysCount,
         weeklyOffDays,
-        leaveDays,
+        leaveDays: leaveDays + halfDayCount,
         manualAttendanceCount,
         continueDutyDays,
         continueDutyAmount: String(continueDutyAmount),
@@ -226,7 +282,17 @@ router.post("/payroll", async (req, res): Promise<void> => {
     // Check if payroll already exists
     const existing = await db.select().from(payrollTable)
       .where(and(eq(payrollTable.employeeId, emp.id), eq(payrollTable.month, month)));
-    if (existing.length > 0) continue;
+    
+    if (existing.length > 0) {
+      if (existing[0].status === "draft") {
+        // Delete the existing draft to regenerate
+        await db.delete(payrollTable).where(eq(payrollTable.id, existing[0].id));
+      } else {
+        // If it's already approved or paid, skip regeneration to protect locked records
+        generated.push(await formatPayroll(existing[0]));
+        continue;
+      }
+    }
 
     const [payrollRecord] = await db.insert(payrollTable).values({
       employeeId: emp.id,
