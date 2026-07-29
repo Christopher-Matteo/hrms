@@ -29,7 +29,7 @@ import {
 import { eq, and, desc, sql, or } from "drizzle-orm";
 import { requireAuth, type AuthenticatedRequest } from "./auth";
 import jwt from "jsonwebtoken";
-import PDFDocument from "pdfkit";
+import { downloadFile, generatePayslipPdf } from "../lib/storage";
 
 const router: IRouter = Router();
 
@@ -531,11 +531,11 @@ router.get("/documents/:id/download", requireAuth(), async (req: AuthenticatedRe
     return;
   }
 
-  // Generate short-lived JWT token for file download (expiring in 1 hour with tolerance)
+  // Generate short-lived JWT token for file download (expiring in 5 minutes)
   const fileToken = jwt.sign(
-    { storageKey: document.storageKey, title: document.title, mimeType: document.mimeType },
+    { documentId: document.id, employeeId: req.user.employeeId },
     SIGNED_URL_SECRET,
-    { expiresIn: "1h" }
+    { expiresIn: "5m" }
   );
 
   const downloadUrl = `/api/documents/download-file?token=${fileToken}`;
@@ -554,8 +554,42 @@ router.get("/documents/download-file", async (req, res): Promise<void> => {
   try {
     const payload = jwt.verify(token, SIGNED_URL_SECRET, { clockTolerance: 300 }) as any;
     
-    if (payload.storageKey && payload.storageKey.startsWith("payslips/")) {
-      const keyParts = payload.storageKey.split("/");
+    if (!payload.documentId || !payload.employeeId) {
+      res.status(400).json({ error: "Malformed download token" });
+      return;
+    }
+
+    // Retrieve document metadata from database
+    const [document] = await db
+      .select()
+      .from(documentsTable)
+      .where(eq(documentsTable.id, payload.documentId));
+
+    if (!document) {
+      res.status(404).json({ error: "Document metadata not found." });
+      return;
+    }
+
+    // Verify ownership
+    if (document.employeeId !== payload.employeeId) {
+      res.status(403).json({ error: "Access denied. You do not own this document." });
+      return;
+    }
+
+    // Attempt to download pre-generated PDF from storage (Supabase or Local)
+    try {
+      const buffer = await downloadFile(document.storageKey, document.storageProvider);
+      res.setHeader("Content-Type", document.mimeType);
+      res.setHeader("Content-Disposition", `attachment; filename="${document.title}.pdf"`);
+      res.send(buffer);
+      return;
+    } catch (storageErr) {
+      console.error("Storage download failed, attempting dynamic generation fallback:", storageErr);
+    }
+
+    // Fallback: Dynamically generate the PDF if file is missing in storage but document is a payslip
+    if (document.category === "payslip" && document.storageKey.startsWith("payslips/")) {
+      const keyParts = document.storageKey.split("/");
       const fileIdStr = keyParts[1].replace(".pdf", "");
       const payrollId = parseInt(fileIdStr, 10);
 
@@ -565,7 +599,7 @@ router.get("/documents/download-file", async (req, res): Promise<void> => {
         .where(eq(payrollTable.id, payrollId));
 
       if (!payroll) {
-        res.status(404).send("Payroll record not found.");
+        res.status(404).send("Payroll record not found for dynamic generation.");
         return;
       }
 
@@ -575,7 +609,7 @@ router.get("/documents/download-file", async (req, res): Promise<void> => {
         .where(eq(employeesTable.id, payroll.employeeId));
 
       if (!emp) {
-        res.status(404).send("Employee record not found.");
+        res.status(404).send("Employee record not found for dynamic generation.");
         return;
       }
 
@@ -584,117 +618,17 @@ router.get("/documents/download-file", async (req, res): Promise<void> => {
         .from(branchesTable)
         .where(eq(branchesTable.id, emp.branchId));
 
-      // Generate dynamic PDF
-      const doc = new PDFDocument({ size: "A4", margin: 50 });
+      // Dynamic Generation Fallback
+      const pdfBuffer = await generatePayslipPdf(payroll, emp, branch);
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="${payload.title}"`);
-      doc.pipe(res);
-
-      // Header
-      doc.fillColor("#b91c1c").font("Helvetica-Bold").fontSize(20).text("RED FOX HOTEL", { align: "center" });
-      doc.fillColor("#4b5563").font("Helvetica").fontSize(10).text(branch?.address ?? "Corporate Office", { align: "center" });
-      doc.moveDown(1);
-      doc.fillColor("#1f2937").font("Helvetica-Bold").fontSize(14).text(`PAYSLIP FOR ${payroll.month}`, { align: "center", underline: true });
-      doc.moveDown(1.5);
-
-      // Employee details
-      doc.fontSize(10).fillColor("#1f2937").font("Helvetica");
-      const leftColX = 50;
-      const rightColX = 300;
-      let y = doc.y;
-
-      doc.text(`Employee Code: ${emp.employeeId}`, leftColX, y);
-      doc.text(`Department: ${emp.department}`, leftColX, y + 15);
-      doc.text(`Designation: ${emp.designation}`, leftColX, y + 30);
-      doc.text(`Joining Date: ${emp.joiningDate}`, leftColX, y + 45);
-
-      doc.text(`Employee Name: ${emp.firstName} ${emp.lastName}`, rightColX, y);
-      doc.text(`Phone: ${emp.phone}`, rightColX, y + 15);
-      doc.text(`Email: ${emp.email}`, rightColX, y + 30);
-      doc.text(`Branch: ${branch?.name ?? "N/A"}`, rightColX, y + 45);
-
-      doc.moveDown(4.5);
-
-      // Table headers
-      y = doc.y;
-      doc.rect(50, y, 500, 20).fill("#f3f4f6");
-      doc.fillColor("#1f2937").font("Helvetica-Bold").text("Earnings", 60, y + 5);
-      doc.text("Amount", 240, y + 5);
-      doc.text("Deductions", 310, y + 5);
-      doc.text("Amount", 490, y + 5);
-
-      doc.font("Helvetica").fontSize(9);
-      y += 25;
-
-      const basicSalary = Number(emp.salary);
-      const otAmt = Number(payroll.overtimeAmount);
-      const cdAmt = Number(payroll.continueDutyAmount);
-      const allow = Number(payroll.allowances);
-      const bonus = Number(payroll.bonus);
-
-      const absentDeduct = Number(payroll.absentDeduction);
-      const lateDeduct = Number(payroll.lateDeduction);
-      const advDeduct = Number(payroll.advanceDeduction);
-
-      const earnings = [
-        { name: "Basic Salary", amount: basicSalary },
-        { name: "Overtime Amount", amount: otAmt },
-        { name: "Continue Duty Amount", amount: cdAmt },
-        { name: "Allowances", amount: allow },
-        { name: "Bonus", amount: bonus }
-      ];
-
-      const deductions = [
-        { name: "Absent Deduction", amount: absentDeduct },
-        { name: "Late Deduction", amount: lateDeduct },
-        { name: "Advance Deduction", amount: advDeduct }
-      ];
-
-      const rowsCount = Math.max(earnings.length, deductions.length);
-      for (let i = 0; i < rowsCount; i++) {
-        const earn = earnings[i];
-        const deduct = deductions[i];
-        if (earn) {
-          doc.text(earn.name, 60, y);
-          doc.text(`Rs. ${earn.amount.toFixed(2)}`, 240, y);
-        }
-        if (deduct) {
-          doc.text(deduct.name, 310, y);
-          doc.text(`Rs. ${deduct.amount.toFixed(2)}`, 490, y);
-        }
-        y += 15;
-      }
-
-      // Border and Totals
-      doc.rect(50, y, 500, 1).fill("#e5e7eb");
-      y += 10;
-      doc.font("Helvetica-Bold");
-      doc.text("Gross Salary:", 60, y);
-      doc.text(`Rs. ${Number(payroll.grossSalary).toFixed(2)}`, 240, y);
-      doc.text("Total Deductions:", 310, y);
-      doc.text(`Rs. ${Number(payroll.totalDeductions).toFixed(2)}`, 490, y);
-
-      y += 20;
-      doc.rect(50, y, 500, 25).fill("#eff6ff");
-      doc.fillColor("#1e3a8a").fontSize(11).text("Net Pay:", 60, y + 7);
-      doc.text(`Rs. ${Number(payroll.netSalary).toFixed(2)}`, 240, y + 7);
-
-      // Signatures
-      y += 60;
-      doc.fillColor("#4b5563").font("Helvetica").fontSize(9);
-      doc.text("Employee Signature", 100, y, { align: "left" });
-      doc.text("Authorized Signatory", 400, y, { align: "left" });
-
-      doc.end();
+      res.setHeader("Content-Disposition", `attachment; filename="${document.title}.pdf"`);
+      res.send(pdfBuffer);
       return;
     }
 
-    // Default simulation for non-payslips
-    res.setHeader("Content-Type", payload.mimeType);
-    res.setHeader("Content-Disposition", `attachment; filename="${payload.title}"`);
-    res.send(`--- Mock Secure Document File Download Stream ---\nTitle: ${payload.title}\nStorage Key: ${payload.storageKey}`);
+    res.status(404).send("Document not found and cannot be dynamically generated.");
   } catch (err) {
-    console.error(err);
+    console.error("Download endpoint failed:", err);
     res.status(403).json({ error: "Signature verification failed or link expired." });
   }
 });

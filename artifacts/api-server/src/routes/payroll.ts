@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, payrollTable, employeesTable, attendanceTable, advancesTable, continueDutiesTable, branchesTable, settingsTable, holidaysTable, documentsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
+import { generatePayslipPdf, uploadFile } from "../lib/storage";
 
 const router: IRouter = Router();
 
@@ -385,23 +386,38 @@ router.post("/payroll/:id/share", async (req, res): Promise<void> => {
       return;
     }
 
+    const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, record.employeeId));
+    if (!emp) {
+      res.status(404).json({ error: "Employee record not found" });
+      return;
+    }
+
+    const [branch] = await db.select().from(branchesTable).where(eq(branchesTable.id, emp.branchId));
+
+    // 1. Generate payslip PDF
+    const pdfBuffer = await generatePayslipPdf(record, emp, branch);
+
+    // 2. Upload PDF to Storage (Supabase or Local)
+    const storageKey = `payslips/${record.id}.pdf`;
+    const uploadResult = await uploadFile(storageKey, pdfBuffer, "application/pdf");
+
     const [doc] = await db
       .insert(documentsTable)
       .values({
         employeeId: record.employeeId,
         title,
         category: "payslip",
-        storageProvider: "local",
-        storageKey: `payslips/${record.id}.pdf`,
+        storageProvider: uploadResult.provider,
+        storageKey: uploadResult.key,
         mimeType: "application/pdf",
-        fileSize: 12045,
+        fileSize: pdfBuffer.length,
         uploadedAt: new Date()
       })
       .returning();
 
     res.json({ success: true, message: "Payslip shared successfully with employee", document: doc });
   } catch (error) {
-    console.error(error);
+    console.error("Error sharing payslip:", error);
     res.status(500).json({ error: "Failed to share payslip" });
   }
 });

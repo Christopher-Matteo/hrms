@@ -81,7 +81,6 @@ function main() {
 
   // 1. Install dependencies
   runCommand('pnpm install', 'Checking and installing dependencies');
-  runCommand('pnpm approve-builds --all', 'Approving builds');
 
   // 2. Push database schema
   runCommand('pnpm --filter @workspace/db run push', 'Pushing database schema (creating tables)');
