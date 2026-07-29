@@ -64,13 +64,7 @@ async function syncDraftPayroll(
   // Determine statuses for every day of the month to handle missing attendance logs
   const totalDays = getDaysInMonth(record.month);
   
-  let presentDays = 0;
-  let absentDaysCount = 0;
-  let halfDayCount = 0;
-  let weeklyOffDays = 0;
-  let leaveDays = 0;
-  let holidayDays = 0;
-
+  const dayStatuses: { dateStr: string; status: string; dayName: string }[] = [];
   for (let day = 1; day <= totalDays; day++) {
     const dateStr = `${record.month}-${String(day).padStart(2, "0")}`;
     const [year, m, d] = dateStr.split("-").map(Number);
@@ -88,6 +82,68 @@ async function syncDraftPayroll(
       status = "weekly_off";
     }
 
+    dayStatuses.push({ dateStr, status, dayName });
+  }
+
+  // Handle weekly off forfeiture if enabled
+  const enableForfeiture = settings ? !!settings.enableWeeklyOffForfeiture : true;
+  if (enableForfeiture) {
+    const initialAbsentCount = dayStatuses.filter(d => d.status === "absent").length;
+    if (initialAbsentCount > 4) {
+      // Over 4 absences: forfeit ALL weekly offs
+      for (const day of dayStatuses) {
+        if (day.status === "weekly_off") {
+          day.status = "absent";
+        }
+      }
+    } else {
+      // 4 or fewer absences: check week-by-week (Monday to Sunday)
+      for (let i = 0; i < dayStatuses.length; i++) {
+        const current = dayStatuses[i];
+        if (current.status === "weekly_off") {
+          const [year, m, d] = current.dateStr.split("-").map(Number);
+          const targetDate = new Date(year, m - 1, d);
+          
+          let dayOfWeek = targetDate.getDay();
+          if (dayOfWeek === 0) dayOfWeek = 7;
+          
+          const mondayOffset = dayOfWeek - 1;
+          const mondayDate = new Date(targetDate);
+          mondayDate.setDate(targetDate.getDate() - mondayOffset);
+
+          const weekDatesStr: string[] = [];
+          for (let offset = 0; offset < 7; offset++) {
+            const checkDate = new Date(mondayDate);
+            checkDate.setDate(mondayDate.getDate() + offset);
+            
+            const checkYear = checkDate.getFullYear();
+            const checkMonth = String(checkDate.getMonth() + 1).padStart(2, "0");
+            const checkDay = String(checkDate.getDate()).padStart(2, "0");
+            weekDatesStr.push(`${checkYear}-${checkMonth}-${checkDay}`);
+          }
+
+          const hasAbsence = dayStatuses.some(day => 
+            weekDatesStr.includes(day.dateStr) && day.status === "absent"
+          );
+
+          if (hasAbsence) {
+            current.status = "absent";
+          }
+        }
+      }
+    }
+  }
+
+  // Count final statuses
+  let presentDays = 0;
+  let absentDaysCount = 0;
+  let halfDayCount = 0;
+  let weeklyOffDays = 0;
+  let leaveDays = 0;
+  let holidayDays = 0;
+
+  for (const day of dayStatuses) {
+    const status = day.status;
     if (["present", "late", "overtime", "continue_duty"].includes(status)) {
       presentDays++;
     } else if (status === "absent") {
@@ -106,12 +162,17 @@ async function syncDraftPayroll(
   const manualAttendanceCount = attendance.filter(a => a.source === "MANUAL").length;
 
   const basicSalary = Number(emp.salary);
-  const dailySalary = basicSalary / totalDays;
+  const calculationMethod = settings?.dailySalaryCalculationMethod ?? "calendar_days";
+  const divisorDays = calculationMethod === "30_days" ? 30 : totalDays;
+  const dailySalary = basicSalary / divisorDays;
 
   // Paid days: worked days, paid leaves, weekly offs, and public holidays
   const paidDays = presentDays + weeklyOffDays + holidayDays + leaveDays + 0.5 * halfDayCount;
   const unpaidDays = totalDays - paidDays;
-  const absentDeduction = Number((dailySalary * unpaidDays).toFixed(2));
+
+  const absentDeductionRaw = dailySalary * unpaidDays;
+  const maxDeduction = basicSalary - (dailySalary * paidDays);
+  const absentDeduction = Number(Math.min(absentDeductionRaw, Math.max(0, maxDeduction)).toFixed(2));
   const earnedSalary = Number((basicSalary - absentDeduction).toFixed(2));
   const payableDays = paidDays;
 
@@ -141,7 +202,7 @@ async function syncDraftPayroll(
   const advanceDeduction = Number(Math.min(maxDeductible, totalAdvanceBalance).toFixed(2));
 
   const totalDeductions = Number((advanceDeduction + lateDeduction + absentDeduction).toFixed(2));
-  const netSalary = Number(Math.max(0, grossSalary - totalDeductions).toFixed(2));
+  const netSalary = Number(Math.max(0, grossSalary - (advanceDeduction + lateDeduction)).toFixed(2));
 
   const hasChanged = 
     record.workingDays !== payableDays ||
