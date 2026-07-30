@@ -7,6 +7,17 @@ function hashPassword(password: string): string {
 }
 
 async function seed() {
+  console.log("Checking if database is already seeded...");
+  try {
+    const existingUsers = await db.select().from(usersTable).limit(1);
+    if (existingUsers.length > 0) {
+      console.log("Database already contains data. Skipping seeding to prevent overwriting existing data.");
+      return;
+    }
+  } catch (error) {
+    console.error("Error checking database state, proceeding with caution:", error);
+  }
+
   console.log("Seeding database...");
 
   // Truncate tables to ensure a clean seed matching the geofence branch requirements
@@ -111,7 +122,7 @@ async function seed() {
     { employeeId: "EMP006", firstName: "Athsentso", lastName: "", email: "athsentso@redfoxdemo.com", phone: "6909651251", gender: "male", dob: "2001-04-17", address: "ECR, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: ecrSignature.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2026-07-01", employmentType: "full_time", status: "active", salary: "14000", emailVerified: true },
     { employeeId: "EMP009", firstName: "Chilanjeet", lastName: "", email: "chilanjeet@redfoxdemo.com", phone: "9876501007", gender: "male", dob: "1998-05-09", address: "Nungambakkam, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: nungambakkam.id, shiftId: eveningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-04-03", employmentType: "full_time", status: "active", salary: "17000", emailVerified: true },
     { employeeId: "EMP008", firstName: "Chinna", lastName: "Thambi", email: "chinna@redfoxdemo.com", phone: "9876501008", gender: "male", dob: "1988-03-19", address: "ECR, Chennai", department: "Security", designation: "Security Guard", branchId: ecrSignature.id, shiftId: nightShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-02-22", employmentType: "full_time", status: "active", salary: "19000", emailVerified: true },
-    { employeeId: "EMP007", firstName: "Christopher", lastName: "", email: "chrisprimaryacc@gmail.com", phone: "9876501009", gender: "male", dob: "1999-08-08", address: "Nungambakkam, Chennai", department: "IT", designation: "Web Developer", branchId: nungambakkam.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2026-07-01", employmentType: "full_time", status: "active", salary: "15000", emailVerified: true },
+    { employeeId: "EMP007", firstName: "Christopher", lastName: "", email: "chrisprimaryacc@gmail.com", phone: "9876501009", gender: "male", dob: "2005-09-17", address: "Nungambakkam, Chennai", department: "IT", designation: "Web Developer", branchId: nungambakkam.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2026-07-01", employmentType: "full_time", status: "active", salary: "15000", emailVerified: true },
     { employeeId: "EMP010", firstName: "Dansurang", lastName: "Rai", email: "dansurang@redfoxdemo.com", phone: "9876501010", gender: "male", dob: "1995-10-17", address: "T-Nagar, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: redfoxTnagar.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-03-06", employmentType: "full_time", status: "active", salary: "17000", emailVerified: true },
     { employeeId: "EMP012", firstName: "Deepak", lastName: "Kumar", email: "deepak@redfoxdemo.com", phone: "9876501012", gender: "male", dob: "1996-09-14", address: "T-Nagar, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: redstoneTnagar.id, shiftId: eveningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-02-19", employmentType: "full_time", status: "active", salary: "17000", emailVerified: true },
     { employeeId: "EMP013", firstName: "Dheenan", lastName: "Raj", email: "dheenan@redfoxdemo.com", phone: "9876501013", gender: "male", dob: "1997-08-29", address: "T-Nagar, Chennai", department: "Front Office", designation: "Front Office Executive", branchId: redstoneTnagar.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-01-09", employmentType: "full_time", status: "active", salary: "18000", emailVerified: true },
