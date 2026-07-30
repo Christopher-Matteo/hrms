@@ -45,7 +45,7 @@ export default function NewEmployeePage() {
       },
       {
         onSuccess: (emp) => setLocation(`/employees/${emp.id}`),
-        onError: () => setError("Failed to create employee. Please check all fields."),
+        onError: (err: any) => setError(err?.data?.error || err?.message || "Failed to create employee. Please check all fields."),
       }
     );
   }

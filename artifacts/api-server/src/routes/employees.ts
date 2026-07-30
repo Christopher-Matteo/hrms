@@ -197,27 +197,19 @@ router.post("/employees", async (req, res): Promise<void> => {
     upiId, panNumber, aadhaarNumber, photoUrl,
   } = req.body;
 
-  if (!firstName || !lastName || !email || !phone || !department || !designation || !branchId || !joiningDate || !salary) {
-    res.status(400).json({ error: "Missing required fields" });
-    return;
-  }
+  const missingFields: string[] = [];
+  if (!firstName) missingFields.push("First Name");
+  if (!lastName) missingFields.push("Last Name");
+  if (!email) missingFields.push("Email");
+  if (!phone) missingFields.push("Phone");
+  if (!department) missingFields.push("Department");
+  if (!designation) missingFields.push("Designation");
+  if (!branchId) missingFields.push("Branch");
+  if (!joiningDate) missingFields.push("Joining Date");
+  if (salary === undefined || salary === null || salary === "") missingFields.push("Monthly Salary");
 
-  // Require OTP verification in database within last 15 minutes
-  const [verification] = await db
-    .select()
-    .from(emailVerificationsTable)
-    .where(
-      and(
-        eq(emailVerificationsTable.email, email.trim().toLowerCase()),
-        eq(emailVerificationsTable.verified, true),
-        sql`created_at >= NOW() - INTERVAL '15 minutes'`
-      )
-    )
-    .orderBy(desc(emailVerificationsTable.createdAt))
-    .limit(1);
-
-  if (!verification) {
-    res.status(400).json({ error: "Email must be verified using OTP before saving." });
+  if (missingFields.length > 0) {
+    res.status(400).json({ error: `Missing required fields: ${missingFields.join(", ")}` });
     return;
   }
 
