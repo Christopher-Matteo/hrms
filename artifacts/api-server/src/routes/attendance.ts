@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, attendanceTable, employeesTable, auditLogsTable, attendanceCorrectionsTable, attendanceCorrectionHistoryTable, branchesTable } from "@workspace/db";
+import { db, attendanceTable, employeesTable, auditLogsTable, attendanceCorrectionsTable, attendanceCorrectionHistoryTable, branchesTable, shiftsTable } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -27,6 +27,36 @@ function formatTo12HourStr(timeStr: string | null | undefined): string | null {
   if (displayHours === 0) displayHours = 12;
   const displayMinutes = minutes.toString().padStart(2, "0");
   return `${displayHours}:${displayMinutes} ${suffix}`;
+}
+
+function parseTimeToMinutes(timeStr: string | null | undefined): number {
+  if (!timeStr) return 0;
+  const clean = timeStr.trim().toUpperCase();
+  const isPM = clean.endsWith("PM");
+  const isAM = clean.endsWith("AM");
+  let timePart = clean.replace(/(AM|PM)/g, "").trim();
+  if (!timePart.includes(":")) {
+    timePart = `${timePart}:00`;
+  }
+  const parts = timePart.split(":");
+  let hours = parseInt(parts[0], 10) || 0;
+  const minutes = parseInt(parts[1], 10) || 0;
+  if (isPM && hours < 12) {
+    hours += 12;
+  } else if (isAM && hours === 12) {
+    hours = 0;
+  }
+  return hours * 60 + minutes;
+}
+
+function isLateByMoreThanTwoHours(shiftStartStr: string, checkInStr: string): boolean {
+  const shiftMinutes = parseTimeToMinutes(shiftStartStr);
+  const checkInMinutes = parseTimeToMinutes(checkInStr);
+  let diff = checkInMinutes - shiftMinutes;
+  if (diff < -720) {
+    diff += 1440;
+  }
+  return diff > 120;
 }
 
 function formatRecord(
@@ -72,7 +102,9 @@ router.get("/attendance", async (req, res): Promise<void> => {
   if (month) {
     conditions.push(sql`${attendanceTable.date}::text like ${String(month) + "%"}`);
   }
-  if (status) conditions.push(eq(attendanceTable.status, String(status)));
+  // Only apply database-level status filtering if we aren't querying by date, 
+  // as date queries require us to load all records to compute virtual absences.
+  if (status && !date) conditions.push(eq(attendanceTable.status, String(status)));
 
   let query = db.select().from(attendanceTable).$dynamic();
   if (conditions.length > 0) query = query.where(and(...conditions));
@@ -108,7 +140,92 @@ router.get("/attendance", async (req, res): Promise<void> => {
     })
   );
 
-  res.json(result);
+  let finalResult = result;
+
+  if (date) {
+    // Fetch active employees matching optional branch or employee filters
+    const empConditions = [
+      eq(employeesTable.status, "active"),
+      eq(employeesTable.accountStatus, "active")
+    ];
+    if (employeeId) empConditions.push(eq(employeesTable.id, Number(employeeId)));
+    if (branchId) empConditions.push(eq(employeesTable.branchId, Number(branchId)));
+
+    const activeEmployees = await db
+      .select()
+      .from(employeesTable)
+      .where(and(...empConditions));
+
+    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const isPastDate = String(date) < todayStr;
+    const isToday = String(date) === todayStr;
+
+    if (isPastDate || isToday) {
+      const existingEmployeeIds = new Set(records.map(r => r.employeeId));
+      const virtualRecords: any[] = [];
+
+      for (const emp of activeEmployees) {
+        if (!existingEmployeeIds.has(emp.id)) {
+          let isPastWindow = isPastDate;
+          if (isToday) {
+            let startTimeStr = "09:00"; // default fallback
+            if (emp.shiftId) {
+              const [sh] = await db.select().from(shiftsTable).where(eq(shiftsTable.id, emp.shiftId));
+              if (sh?.startTime) {
+                startTimeStr = sh.startTime;
+              }
+            }
+            
+            const currentISTTimeStr = new Date().toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", hour12: true });
+            isPastWindow = isLateByMoreThanTwoHours(startTimeStr, currentISTTimeStr);
+          }
+
+          if (isPastWindow) {
+            let homeBranchName = null;
+            if (emp.branchId) {
+              const [hb] = await db.select({ name: branchesTable.name }).from(branchesTable).where(eq(branchesTable.id, emp.branchId));
+              homeBranchName = hb?.name ?? null;
+            }
+
+            virtualRecords.push({
+              id: -emp.id, // virtual ID
+              employeeId: emp.id,
+              employeeName: `${emp.firstName} ${emp.lastName}`,
+              employeeCode: emp.employeeId,
+              date: String(date),
+              status: "absent",
+              checkIn: null,
+              checkOut: null,
+              workingHours: null,
+              breakTime: null,
+              lateMinutes: null,
+              overtimeHours: null,
+              remarks: "System: Absent due to missing check-in past 2-hour window",
+              checkInPhoto: null,
+              checkOutPhoto: null,
+              photoVerified: false,
+              faceVerificationStatus: "Not Verified",
+              source: "SYSTEM",
+              homeBranchId: emp.branchId,
+              attendanceBranchId: null,
+              homeBranchName,
+              attendanceBranchName: null,
+              createdAt: new Date().toISOString(),
+            });
+          }
+        }
+      }
+
+      finalResult = [...result, ...virtualRecords];
+    }
+  }
+
+  // Apply memory status filter if filtering by status on a date-specific query
+  if (status && date) {
+    finalResult = finalResult.filter(r => r.status === String(status));
+  }
+
+  res.json(finalResult);
 });
 
 router.post("/attendance", async (req, res): Promise<void> => {
