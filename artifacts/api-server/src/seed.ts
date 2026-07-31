@@ -55,7 +55,7 @@ async function seed() {
   console.log("Seeding new branches...");
   const insertedBranches = await db.insert(branchesTable).values([
     { name: "Nungambakkam", address: "K R S Hospitals, Avenue Road, Zone 9 Teynampet, Chennai - 600034, Tamil Nadu, India", phone: "+91 44 1111 2222", email: "nungambakkam@redfoxhotel.com", latitude: "13.0624", longitude: "80.2443", radius: "200.00" },
-    { name: "Redfox T Nagar", address: "T Nagar, Chennai", phone: "+91 44 5555 6666", email: "redfox.tnagar@redfoxhotel.com", latitude: "13.0418", longitude: "80.2341", radius: "200.00" },
+    { name: "Redfox T Nagar", address: "T Nagar, Chennai", phone: "+91 44 5555 6666", email: "redfox.tnagar@redfoxhotel.com", latitude: "13.053921", longitude: "80.233352", radius: "200.00" },
     { name: "Redstone T Nagar", address: "Mamabalam Highway, Zone 9 Teynampet, Chennai - 600024, Tamil Nadu, India", phone: "+91 44 5555 7777", email: "redstone.tnagar@redfoxhotel.com", latitude: "13.053490", longitude: "80.234060", radius: "200.00" },
     { name: "Ambattur", address: "Industrial Estate, Ambattur, Chennai", phone: "+91 44 2222 3333", email: "ambattur@redfoxhotel.com", latitude: "13.133469", longitude: "80.162256", radius: "200.00" },
     { name: "Porur", address: "Mount Poonamallee Road, Porur, Chennai", phone: "+91 44 3333 4444", email: "porur@redfoxhotel.com", latitude: "13.015508", longitude: "80.159126", radius: "200.00" },

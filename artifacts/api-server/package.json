@@ -9,7 +9,8 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "seed": "tsx src/seed.ts",
-    "update-redstone": "tsx src/update-redstone.ts"
+    "update-redstone": "tsx src/update-redstone.ts",
+    "update-redfox-tnagar": "tsx src/update-redfox-tnagar.ts"
   },
   "dependencies": {
     "@swc/helpers": "^0.5.23",
