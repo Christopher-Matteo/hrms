@@ -32,7 +32,7 @@ async function syncDraftPayroll(
     .where(and(eq(attendanceTable.employeeId, emp.id), sql`${attendanceTable.date}::text like ${record.month + "%"}`));
 
   const attendance = attendanceRaw.map(a => {
-    if (a.faceVerificationStatus === "Not Verified") {
+    if (a.faceVerificationStatus === "Not Verified" || a.faceVerificationStatus === "Mismatched") {
       return {
         ...a,
         status: "absent",

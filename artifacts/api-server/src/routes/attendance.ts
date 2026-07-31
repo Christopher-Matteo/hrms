@@ -294,7 +294,7 @@ router.delete("/attendance/:id", async (req, res): Promise<void> => {
 router.post("/attendance/:id/verify-photos", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
-  const { status } = req.body; // "Verified" | "Not Verified" | "Pending Review"
+  const { faceVerificationStatus } = req.body;
 
   const [existing] = await db
     .select()
@@ -306,20 +306,39 @@ router.post("/attendance/:id/verify-photos", async (req, res): Promise<void> => 
     return;
   }
 
-  const targetStatus = status || "Verified";
-  const isVerified = targetStatus === "Verified";
+  const targetStatus = faceVerificationStatus || "Verified";
+  const isVerified = targetStatus === "Verified" || targetStatus === "Matched";
 
   const updatedRemarks = existing.remarks
     ? `${existing.remarks} [Face verification: ${targetStatus}]`
     : `[Face verification: ${targetStatus}]`;
 
+  const updates: any = {
+    faceVerificationStatus: targetStatus === "Matched" ? "Verified" : targetStatus,
+    photoVerified: isVerified,
+    remarks: updatedRemarks,
+  };
+
+  if (isVerified) {
+    updates.faceVerificationStatus = "Verified";
+    updates.checkInPhoto = null;
+    updates.checkOutPhoto = null;
+  } else if (targetStatus === "Mismatched") {
+    updates.status = "absent";
+    updates.checkIn = null;
+    updates.checkOut = null;
+    updates.workingHours = null;
+    updates.breakTime = null;
+    updates.lateMinutes = null;
+    updates.overtimeHours = null;
+    updates.checkInPhoto = null;
+    updates.checkOutPhoto = null;
+    updates.photoVerified = false;
+  }
+
   const [record] = await db
     .update(attendanceTable)
-    .set({
-      photoVerified: isVerified,
-      faceVerificationStatus: targetStatus,
-      remarks: updatedRemarks,
-    })
+    .set(updates)
     .where(eq(attendanceTable.id, id))
     .returning();
 

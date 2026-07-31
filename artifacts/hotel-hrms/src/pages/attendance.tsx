@@ -332,9 +332,9 @@ export default function AttendancePage() {
                         <td className="px-4 py-3 text-muted-foreground">{r.checkIn ?? "—"}</td>
                         <td className="px-4 py-3 text-muted-foreground">{r.checkOut ?? "—"}</td>
                         <td className="px-4 py-3 text-center">
-                          {r.faceVerificationStatus === "Matched" ? (
+                          {r.faceVerificationStatus === "Matched" || r.faceVerificationStatus === "Verified" ? (
                             <span className="text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
-                              ✅ Matched
+                              ✅ Verified
                             </span>
                           ) : r.faceVerificationStatus === "Mismatched" ? (
                             <span className="text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
@@ -382,7 +382,7 @@ export default function AttendancePage() {
                     <div>
                       <span className="font-semibold text-xs">Status: </span>
                       <span className={`text-xs font-bold ${
-                        reviewRecord.faceVerificationStatus === "Matched" ? "text-green-600" :
+                        (reviewRecord.faceVerificationStatus === "Matched" || reviewRecord.faceVerificationStatus === "Verified") ? "text-green-600" :
                         reviewRecord.faceVerificationStatus === "Mismatched" ? "text-red-600" : "text-amber-600"
                       }`}>
                         {reviewRecord.faceVerificationStatus || "Not Verified"}
@@ -429,7 +429,7 @@ export default function AttendancePage() {
                       <Button 
                         size="sm" 
                         className="bg-green-600 hover:bg-green-700 text-white text-xs px-2.5"
-                        onClick={() => handleVerifyPhotos(reviewRecord.id, "Matched")}
+                        onClick={() => handleVerifyPhotos(reviewRecord.id, "Verified")}
                         disabled={verifyingPhotos}
                       >
                         {verifyingPhotos ? "Clearing..." : "Verify & Clear"}
