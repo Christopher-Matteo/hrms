@@ -61,6 +61,41 @@ function getRoleBadge(role: string) {
   return map[role] ?? role;
 }
 
+function playNotificationSound() {
+  try {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    
+    // Play a sequence of tones over exactly 3 seconds
+    const playTone = (freq: number, start: number, duration: number) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.2, start + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+      
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      osc.start(start);
+      osc.stop(start + duration);
+    };
+
+    // Play a rising chime sequence lasting exactly 3.0 seconds
+    // Tone 1: 523.25 Hz (C5) at 0s, duration 1.0s
+    playTone(523.25, audioCtx.currentTime, 1.0);
+    // Tone 2: 659.25 Hz (E5) at 0.75s, duration 1.0s
+    playTone(659.25, audioCtx.currentTime + 0.75, 1.0);
+    // Tone 3: 783.99 Hz (G5) at 1.5s, duration 1.5s
+    playTone(783.99, audioCtx.currentTime + 1.5, 1.5);
+  } catch (e) {
+    console.error("Audio playback failed", e);
+  }
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [location] = useLocation();
@@ -78,22 +113,46 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const markAllRead = useMarkAllNotificationsRead();
 
   useEffect(() => {
-    if (!notifications) return;
+    if (!notifications) {
+      console.log("AppLayout useEffect: notifications is undefined or null");
+      return;
+    }
+
+    console.log("AppLayout useEffect triggered: notifications count =", notifications.length, "isInitialLoad =", isInitialLoad);
 
     if (isInitialLoad) {
-      const ids = new Set(notifications.map(n => n.id));
-      setToastedIds(ids);
-      setIsInitialLoad(false);
-    } else {
-      const newUnread = notifications.filter(n => !n.isRead && !toastedIds.has(n.id));
-      if (newUnread.length > 0) {
-        newUnread.forEach(n => {
+      const unreadList = notifications.filter(n => !n.isRead);
+      const toShow = unreadList.slice(0, 3);
+      console.log("AppLayout initial load check: unreadList count =", unreadList.length, "toShow count =", toShow.length);
+
+      if (toShow.length > 0) {
+        toShow.forEach(n => {
+          console.log("AppLayout toasting initial unread notification:", n);
           toast({
             title: "New Employee Portal Request",
             description: n.message,
             variant: "default",
           });
         });
+        playNotificationSound();
+      }
+
+      const ids = new Set(notifications.map(n => n.id));
+      setToastedIds(ids);
+      setIsInitialLoad(false);
+    } else {
+      const newUnread = notifications.filter(n => !n.isRead && !toastedIds.has(n.id));
+      console.log("AppLayout subsequent poll check: newUnread count =", newUnread.length, "toastedIds count =", toastedIds.size);
+      if (newUnread.length > 0) {
+        newUnread.forEach(n => {
+          console.log("AppLayout toasting subsequent unread notification:", n);
+          toast({
+            title: "New Employee Portal Request",
+            description: n.message,
+            variant: "default",
+          });
+        });
+        playNotificationSound();
         setToastedIds(prev => {
           const next = new Set(prev);
           newUnread.forEach(n => next.add(n.id));

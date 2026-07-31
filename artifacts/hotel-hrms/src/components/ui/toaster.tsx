@@ -10,6 +10,7 @@ import {
 
 export function Toaster() {
   const { toasts } = useToast()
+  console.log("Toaster component rendered, current toasts count:", toasts.length, toasts);
 
   return (
     <ToastProvider>
