@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, attendanceTable, employeesTable, auditLogsTable, attendanceCorrectionsTable, attendanceCorrectionHistoryTable, branchesTable, shiftsTable } from "@workspace/db";
+import { db, attendanceTable, employeesTable, auditLogsTable, attendanceCorrectionsTable, attendanceCorrectionHistoryTable, branchesTable, shiftsTable, holidaysTable, weeklyOffPoliciesTable } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -57,6 +57,20 @@ function isLateByMoreThanTwoHours(shiftStartStr: string, checkInStr: string): bo
     diff += 1440;
   }
   return diff > 120;
+}
+
+function getEmployeeOffDays(emp: any, policies: any[]): string[] {
+  if (emp.weeklyOffPolicyId) {
+    const policy = policies.find(p => p.id === emp.weeklyOffPolicyId);
+    if (policy?.offDays) {
+      try {
+        return JSON.parse(policy.offDays);
+      } catch (e) {
+        // fallback
+      }
+    }
+  }
+  return ["Sunday"];
 }
 
 function formatRecord(
@@ -161,26 +175,54 @@ router.get("/attendance", async (req, res): Promise<void> => {
     const isToday = String(date) === todayStr;
 
     if (isPastDate || isToday) {
+      const holidays = await db.select().from(holidaysTable);
+      const policies = await db.select().from(weeklyOffPoliciesTable);
       const existingEmployeeIds = new Set(records.map(r => r.employeeId));
       const virtualRecords: any[] = [];
 
       for (const emp of activeEmployees) {
         if (!existingEmployeeIds.has(emp.id)) {
-          let isPastWindow = isPastDate;
-          if (isToday) {
-            let startTimeStr = "09:00"; // default fallback
-            if (emp.shiftId) {
-              const [sh] = await db.select().from(shiftsTable).where(eq(shiftsTable.id, emp.shiftId));
-              if (sh?.startTime) {
-                startTimeStr = sh.startTime;
+          const [yearNum, mNum, dayNum] = String(date).split("-").map(Number);
+          const dateObj = new Date(yearNum, mNum - 1, dayNum);
+          const dayName = dateObj.toLocaleDateString("en-US", { weekday: "long" });
+
+          const isHoliday = holidays.some(h => h.date === String(date) && (!h.branchId || h.branchId === emp.branchId));
+          const offDays = getEmployeeOffDays(emp, policies);
+          const isWeeklyOff = offDays.includes(dayName);
+
+          let finalStatus = "absent";
+          let remarksText = "System: Absent due to missing check-in past 2-hour window";
+          let shouldInclude = false;
+
+          if (isHoliday) {
+            finalStatus = "public_holiday";
+            remarksText = "Public Holiday";
+            shouldInclude = true;
+          } else if (isWeeklyOff) {
+            finalStatus = "weekly_off";
+            remarksText = "Weekly Off";
+            shouldInclude = true;
+          } else {
+            let isPastWindow = isPastDate;
+            if (isToday) {
+              let startTimeStr = "09:00"; // default fallback
+              if (emp.shiftId) {
+                const [sh] = await db.select().from(shiftsTable).where(eq(shiftsTable.id, emp.shiftId));
+                if (sh?.startTime) {
+                  startTimeStr = sh.startTime;
+                }
               }
+              const currentISTTimeStr = new Date().toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", hour12: true });
+              isPastWindow = isLateByMoreThanTwoHours(startTimeStr, currentISTTimeStr);
             }
-            
-            const currentISTTimeStr = new Date().toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", hour12: true });
-            isPastWindow = isLateByMoreThanTwoHours(startTimeStr, currentISTTimeStr);
+            if (isPastWindow) {
+              finalStatus = "absent";
+              remarksText = "System: Absent due to missing check-in past 2-hour window";
+              shouldInclude = true;
+            }
           }
 
-          if (isPastWindow) {
+          if (shouldInclude) {
             let homeBranchName = null;
             if (emp.branchId) {
               const [hb] = await db.select({ name: branchesTable.name }).from(branchesTable).where(eq(branchesTable.id, emp.branchId));
@@ -193,14 +235,14 @@ router.get("/attendance", async (req, res): Promise<void> => {
               employeeName: `${emp.firstName} ${emp.lastName}`,
               employeeCode: emp.employeeId,
               date: String(date),
-              status: "absent",
+              status: finalStatus,
               checkIn: null,
               checkOut: null,
               workingHours: null,
               breakTime: null,
               lateMinutes: null,
               overtimeHours: null,
-              remarks: "System: Absent due to missing check-in past 2-hour window",
+              remarks: remarksText,
               checkInPhoto: null,
               checkOutPhoto: null,
               photoVerified: false,
