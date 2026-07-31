@@ -35,6 +35,31 @@ const router: IRouter = Router();
 
 const SIGNED_URL_SECRET = "red_fox_signed_url_secret_2026";
 
+function formatTo12HourStr(timeStr: string | null | undefined): string | null {
+  if (!timeStr) return null;
+  const clean = timeStr.trim().toUpperCase();
+  const isPM = clean.endsWith("PM");
+  const isAM = clean.endsWith("AM");
+  let timePart = clean.replace(/(AM|PM)/g, "").trim();
+  if (!timePart.includes(":")) {
+    timePart = `${timePart}:00`;
+  }
+  const parts = timePart.split(":");
+  let hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10) || 0;
+  if (isNaN(hours)) return timeStr;
+  if (isPM && hours < 12) {
+    hours += 12;
+  } else if (isAM && hours === 12) {
+    hours = 0;
+  }
+  const suffix = hours >= 12 ? "PM" : "AM";
+  let displayHours = hours % 12;
+  if (displayHours === 0) displayHours = 12;
+  const displayMinutes = minutes.toString().padStart(2, "0");
+  return `${displayHours}:${displayMinutes} ${suffix}`;
+}
+
 // Helper to calculate days between dates
 function getDaysCount(start: string, end: string): number {
   const s = new Date(start);
@@ -186,14 +211,17 @@ router.post("/attendance/correction", requireAuth(), async (req: AuthenticatedRe
     return;
   }
 
+  const normalizedIn = formatTo12HourStr(requestedCheckIn);
+  const normalizedOut = formatTo12HourStr(requestedCheckOut);
+
   const [correction] = await db
     .insert(attendanceCorrectionsTable)
     .values({
       employeeId: req.user.employeeId,
       attendanceId: attendanceId ? Number(attendanceId) : null,
       date,
-      requestedCheckIn,
-      requestedCheckOut,
+      requestedCheckIn: normalizedIn,
+      requestedCheckOut: normalizedOut,
       reason,
       status: "pending",
     })
@@ -203,7 +231,7 @@ router.post("/attendance/correction", requireAuth(), async (req: AuthenticatedRe
   await db.insert(attendanceCorrectionHistoryTable).values({
     correctionId: correction.id,
     action: "requested",
-    newValue: JSON.stringify({ requestedCheckIn, requestedCheckOut, reason }),
+    newValue: JSON.stringify({ requestedCheckIn: normalizedIn, requestedCheckOut: normalizedOut, reason }),
     performedBy: req.user.id,
   });
 

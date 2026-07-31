@@ -4,6 +4,31 @@ import { eq, and, sql, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
 
+function formatTo12HourStr(timeStr: string | null | undefined): string | null {
+  if (!timeStr) return null;
+  const clean = timeStr.trim().toUpperCase();
+  const isPM = clean.endsWith("PM");
+  const isAM = clean.endsWith("AM");
+  let timePart = clean.replace(/(AM|PM)/g, "").trim();
+  if (!timePart.includes(":")) {
+    timePart = `${timePart}:00`;
+  }
+  const parts = timePart.split(":");
+  let hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10) || 0;
+  if (isNaN(hours)) return timeStr;
+  if (isPM && hours < 12) {
+    hours += 12;
+  } else if (isAM && hours === 12) {
+    hours = 0;
+  }
+  const suffix = hours >= 12 ? "PM" : "AM";
+  let displayHours = hours % 12;
+  if (displayHours === 0) displayHours = 12;
+  const displayMinutes = minutes.toString().padStart(2, "0");
+  return `${displayHours}:${displayMinutes} ${suffix}`;
+}
+
 function formatRecord(
   r: typeof attendanceTable.$inferSelect,
   employeeName?: string | null,
@@ -112,8 +137,8 @@ router.post("/attendance", async (req, res): Promise<void> => {
       .update(attendanceTable)
       .set({
         status,
-        checkIn: checkIn ?? null,
-        checkOut: checkOut ?? null,
+        checkIn: formatTo12HourStr(checkIn),
+        checkOut: formatTo12HourStr(checkOut),
         workingHours: workingHours != null ? String(workingHours) : null,
         breakTime: breakTime != null ? String(breakTime) : null,
         lateMinutes: lateMinutes ?? null,
@@ -133,8 +158,8 @@ router.post("/attendance", async (req, res): Promise<void> => {
         employeeId: Number(employeeId),
         date,
         status,
-        checkIn: checkIn ?? null,
-        checkOut: checkOut ?? null,
+        checkIn: formatTo12HourStr(checkIn),
+        checkOut: formatTo12HourStr(checkOut),
         workingHours: workingHours != null ? String(workingHours) : null,
         breakTime: breakTime != null ? String(breakTime) : null,
         lateMinutes: lateMinutes ?? null,
@@ -222,8 +247,8 @@ router.patch("/attendance/:id", async (req, res): Promise<void> => {
 
   const updates: Record<string, unknown> = {};
   if (req.body.status !== undefined) updates.status = req.body.status;
-  if (req.body.checkIn !== undefined) updates.checkIn = req.body.checkIn;
-  if (req.body.checkOut !== undefined) updates.checkOut = req.body.checkOut;
+  if (req.body.checkIn !== undefined) updates.checkIn = formatTo12HourStr(req.body.checkIn);
+  if (req.body.checkOut !== undefined) updates.checkOut = formatTo12HourStr(req.body.checkOut);
   if (req.body.workingHours !== undefined) updates.workingHours = req.body.workingHours != null ? String(req.body.workingHours) : null;
   if (req.body.breakTime !== undefined) updates.breakTime = req.body.breakTime != null ? String(req.body.breakTime) : null;
   if (req.body.lateMinutes !== undefined) updates.lateMinutes = req.body.lateMinutes;
@@ -367,8 +392,8 @@ router.patch("/attendance-corrections/:id", async (req, res): Promise<void> => {
     }
 
     if (status === "approved") {
-      const checkIn = correction.requestedCheckIn;
-      const checkOut = correction.requestedCheckOut;
+      const checkIn = formatTo12HourStr(correction.requestedCheckIn);
+      const checkOut = formatTo12HourStr(correction.requestedCheckOut);
 
       const [existingAttendance] = await db
         .select()

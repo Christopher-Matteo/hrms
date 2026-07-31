@@ -5,9 +5,11 @@ import { eq, and, sql, gte } from "drizzle-orm";
 const router: IRouter = Router();
 
 router.get("/dashboard/stats", async (req, res): Promise<void> => {
-  const today = new Date().toISOString().split("T")[0];
+  const todayDate = new Date();
+  const today = todayDate.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   const currentMonth = today.slice(0, 7);
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const thirtyDaysAgoDate = new Date(todayDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = thirtyDaysAgoDate.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
   const [totalEmp] = await db.select({ count: sql<number>`count(*)` }).from(employeesTable).where(eq(employeesTable.status, "active"));
   const [totalBranches] = await db.select({ count: sql<number>`count(*)` }).from(branchesTable);
@@ -56,7 +58,8 @@ router.get("/dashboard/attendance-trend", async (req, res): Promise<void> => {
   // Last 14 days trend
   const result = [];
   for (let i = 13; i >= 0; i--) {
-    const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+    const date = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
     const records = await db.select().from(attendanceTable).where(eq(attendanceTable.date, date));
     result.push({
       date,
@@ -74,7 +77,7 @@ router.get("/dashboard/payroll-trend", async (req, res): Promise<void> => {
   for (let i = 5; i >= 0; i--) {
     const d = new Date();
     d.setMonth(d.getMonth() - i);
-    const month = d.toISOString().slice(0, 7);
+    const month = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }).slice(0, 7);
 
     const [total] = await db
       .select({ total: sql<number>`coalesce(sum(net_salary), 0)`, count: sql<number>`count(*)` })

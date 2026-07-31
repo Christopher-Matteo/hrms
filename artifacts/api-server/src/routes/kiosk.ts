@@ -21,6 +21,26 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function parseTimeToMinutes(timeStr: string | null | undefined): number {
+  if (!timeStr) return 0;
+  const clean = timeStr.trim().toUpperCase();
+  const isPM = clean.endsWith("PM");
+  const isAM = clean.endsWith("AM");
+  let timePart = clean.replace(/(AM|PM)/g, "").trim();
+  if (!timePart.includes(":")) {
+    timePart = `${timePart}:00`;
+  }
+  const parts = timePart.split(":");
+  let hours = parseInt(parts[0], 10) || 0;
+  const minutes = parseInt(parts[1], 10) || 0;
+  if (isPM && hours < 12) {
+    hours += 12;
+  } else if (isAM && hours === 12) {
+    hours = 0;
+  }
+  return hours * 60 + minutes;
+}
+
 router.get("/kiosk/branches", async (req, res): Promise<void> => {
   const branches = await db
     .select({
@@ -87,7 +107,7 @@ router.post("/kiosk/lookup", async (req, res): Promise<void> => {
     .from(branchesTable)
     .where(eq(branchesTable.id, employee.branchId));
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   const [todayAttendance] = await db
     .select({
       id: attendanceTable.id,
@@ -258,8 +278,8 @@ router.post("/kiosk/verify-face", async (req, res): Promise<void> => {
   const similarity = 100.0;
 
   // 4. Save Attendance
-  const today = new Date().toISOString().split("T")[0]!;
-  const nowTime = new Date().toTimeString().slice(0, 5);
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const nowTime = new Date().toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", hour12: true });
 
   const [existing] = await db
     .select()
@@ -369,9 +389,9 @@ router.post("/kiosk/verify-face", async (req, res): Promise<void> => {
       return;
     }
 
-    const [inH, inM] = existing.checkIn.split(":").map(Number) as [number, number];
-    const [outH, outM] = nowTime.split(":").map(Number) as [number, number];
-    const workingMinutes = (outH * 60 + outM) - (inH * 60 + inM);
+    const inMinutes = parseTimeToMinutes(existing.checkIn);
+    const outMinutes = parseTimeToMinutes(nowTime);
+    const workingMinutes = outMinutes - inMinutes;
     const workingHours = Math.max(0, workingMinutes / 60).toFixed(2);
 
     const [updated] = await db
