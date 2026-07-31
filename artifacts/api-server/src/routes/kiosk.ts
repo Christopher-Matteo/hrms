@@ -5,7 +5,8 @@ import {
   employeesTable,
   attendanceTable,
   faceEmbeddingsTable,
-  auditLogsTable
+  auditLogsTable,
+  shiftsTable
 } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 
@@ -39,6 +40,16 @@ function parseTimeToMinutes(timeStr: string | null | undefined): number {
     hours = 0;
   }
   return hours * 60 + minutes;
+}
+
+function isLateByMoreThanTwoHours(shiftStartStr: string, checkInStr: string): boolean {
+  const shiftMinutes = parseTimeToMinutes(shiftStartStr);
+  const checkInMinutes = parseTimeToMinutes(checkInStr);
+  let diff = checkInMinutes - shiftMinutes;
+  if (diff < -720) {
+    diff += 1440;
+  }
+  return diff > 120;
 }
 
 router.get("/kiosk/branches", async (req, res): Promise<void> => {
@@ -196,6 +207,7 @@ router.post("/kiosk/verify-face", async (req, res): Promise<void> => {
       branchId: employeesTable.branchId,
       status: employeesTable.status,
       accountStatus: employeesTable.accountStatus,
+      shiftId: employeesTable.shiftId,
     })
     .from(employeesTable)
     .where(
@@ -205,6 +217,14 @@ router.post("/kiosk/verify-face", async (req, res): Promise<void> => {
   if (!employee) {
     res.status(404).json({ error: "Employee not found" });
     return;
+  }
+
+  let shift: any = null;
+  if (employee.shiftId) {
+    [shift] = await db
+      .select()
+      .from(shiftsTable)
+      .where(eq(shiftsTable.id, employee.shiftId));
   }
 
   if (employee.status !== "active" || employee.accountStatus !== "active") {
@@ -325,6 +345,13 @@ router.post("/kiosk/verify-face", async (req, res): Promise<void> => {
     });
   }
 
+  let attendanceStatus = "present";
+  if (shift && shift.startTime) {
+    if (isLateByMoreThanTwoHours(shift.startTime, nowTime)) {
+      attendanceStatus = "absent";
+    }
+  }
+
   if (type === "checkin") {
     if (existing) {
       if (existing.checkIn) {
@@ -340,7 +367,7 @@ router.post("/kiosk/verify-face", async (req, res): Promise<void> => {
         .set({
           ...attendanceData,
           checkIn: nowTime,
-          status: "present",
+          status: attendanceStatus,
           checkInPhoto: photo,
         })
         .where(eq(attendanceTable.id, existing.id))
@@ -360,7 +387,7 @@ router.post("/kiosk/verify-face", async (req, res): Promise<void> => {
           ...attendanceData,
           employeeId: employee.id,
           date: today,
-          status: "present",
+          status: attendanceStatus,
           checkIn: nowTime,
           checkInPhoto: photo,
         })

@@ -1,9 +1,39 @@
 import { Router, type IRouter } from "express";
-import { db, payrollTable, employeesTable, attendanceTable, advancesTable, continueDutiesTable, branchesTable, settingsTable, holidaysTable, documentsTable, weeklyOffPoliciesTable } from "@workspace/db";
+import { db, payrollTable, employeesTable, attendanceTable, advancesTable, continueDutiesTable, branchesTable, settingsTable, holidaysTable, documentsTable, weeklyOffPoliciesTable, shiftsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { generatePayslipPdf, uploadFile } from "../lib/storage";
 
 const router: IRouter = Router();
+
+function parseTimeToMinutes(timeStr: string | null | undefined): number {
+  if (!timeStr) return 0;
+  const clean = timeStr.trim().toUpperCase();
+  const isPM = clean.endsWith("PM");
+  const isAM = clean.endsWith("AM");
+  let timePart = clean.replace(/(AM|PM)/g, "").trim();
+  if (!timePart.includes(":")) {
+    timePart = `${timePart}:00`;
+  }
+  const parts = timePart.split(":");
+  let hours = parseInt(parts[0], 10) || 0;
+  const minutes = parseInt(parts[1], 10) || 0;
+  if (isPM && hours < 12) {
+    hours += 12;
+  } else if (isAM && hours === 12) {
+    hours = 0;
+  }
+  return hours * 60 + minutes;
+}
+
+function isLateByMoreThanTwoHours(shiftStartStr: string, checkInStr: string): boolean {
+  const shiftMinutes = parseTimeToMinutes(shiftStartStr);
+  const checkInMinutes = parseTimeToMinutes(checkInStr);
+  let diff = checkInMinutes - shiftMinutes;
+  if (diff < -720) {
+    diff += 1440;
+  }
+  return diff > 120;
+}
 
 function getDaysInMonth(month: string): number {
   const [year, m] = month.split("-").map(Number);
@@ -24,6 +54,11 @@ async function syncDraftPayroll(
   const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, record.employeeId));
   if (!emp) return record;
 
+  let shift: any = null;
+  if (emp.shiftId) {
+    [shift] = await db.select().from(shiftsTable).where(eq(shiftsTable.id, emp.shiftId));
+  }
+
   const settings = preFetched?.settings ?? (await db.select().from(settingsTable).limit(1))[0];
   const overtimeRate = settings ? Number(settings.overtimeRatePerHour) : 50;
   const lateDeductionPerMin = settings ? Number(settings.lateDeductionPerMinute) : 2;
@@ -32,15 +67,28 @@ async function syncDraftPayroll(
     .where(and(eq(attendanceTable.employeeId, emp.id), sql`${attendanceTable.date}::text like ${record.month + "%"}`));
 
   const attendance = attendanceRaw.map(a => {
+    let status = a.status;
+    let overtimeHours = a.overtimeHours;
+    let lateMinutes = a.lateMinutes;
+
     if (a.faceVerificationStatus === "Not Verified" || a.faceVerificationStatus === "Mismatched") {
-      return {
-        ...a,
-        status: "absent",
-        overtimeHours: null,
-        lateMinutes: null,
-      };
+      status = "absent";
+      overtimeHours = null;
+      lateMinutes = null;
+    } else if (a.checkIn && shift && shift.startTime) {
+      if (isLateByMoreThanTwoHours(shift.startTime, a.checkIn)) {
+        status = "absent";
+        overtimeHours = null;
+        lateMinutes = null;
+      }
     }
-    return a;
+
+    return {
+      ...a,
+      status,
+      overtimeHours,
+      lateMinutes,
+    };
   });
 
   // Load employee's weekly off policy
