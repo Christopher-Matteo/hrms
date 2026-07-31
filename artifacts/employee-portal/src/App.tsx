@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
 import {
+  User,
+  Calendar,
   Clock,
   Megaphone,
+  FileText,
   HelpCircle,
   Settings as SettingsIcon,
   LogOut,
@@ -14,15 +17,7 @@ import {
   Camera,
   ScanFace,
   Menu,
-  LayoutDashboard,
-  CalendarRange,
-  FileSpreadsheet,
-  LifeBuoy,
-  ChevronDown,
-  Plus,
-  TrendingUp,
-  MessageSquare,
-  Send
+  X
 } from "lucide-react";
 import BiometricAttendance from "./components/BiometricAttendance";
 
@@ -626,30 +621,52 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-zinc-950 font-sans flex flex-col transition-colors duration-300">
-      {/* Header bar - only for login/register */}
-      {screen !== "PORTAL" && (
-        <header className="bg-white dark:bg-zinc-900 border-b dark:border-zinc-800 px-6 py-4 flex items-center justify-between sticky top-0 z-50 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-              <span className="text-white font-extrabold text-sm tracking-wide">RF</span>
-            </div>
-            <div>
-              <h1 className="font-extrabold text-base tracking-tight leading-none dark:text-white">Red Fox Hotel</h1>
-              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-0.5">Employee Portal</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 font-sans flex flex-col transition-colors duration-300">
+      {/* Header bar */}
+      <header className="bg-white dark:bg-zinc-900 border-b dark:border-zinc-800 px-6 py-4 flex items-center justify-between sticky top-0 z-50 shadow-sm">
+        <div className="flex items-center gap-3">
+          {screen === "PORTAL" && (
             <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition"
+              onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+              className="p-2 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition md:hidden"
             >
-              {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              {mobileSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
+          )}
+          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+            <span className="text-white font-extrabold text-sm tracking-wide">RF</span>
           </div>
-        </header>
-      )}
+          <div>
+            <h1 className="font-extrabold text-base tracking-tight leading-none dark:text-white">Red Fox Hotel</h1>
+            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-0.5">Employee Portal</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setDarkMode(!darkMode)}
+            className="p-2 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition"
+          >
+            {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </button>
+
+          {screen === "PORTAL" && employee && (
+            <div className="flex items-center gap-3 pl-4 border-l dark:border-zinc-800">
+              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden">
+                {employee.photoUrl ? (
+                  <img src={employee.photoUrl} alt={employee.name} className="w-full h-full object-cover" />
+                ) : (
+                  (employee.name || "").charAt(0)
+                )}
+              </div>
+              <div className="hidden md:block text-left">
+                <p className="font-semibold text-xs leading-none dark:text-zinc-200">{employee.name}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{employee.employeeId}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </header>
 
       {uiFeedback.message && (
         <div className={`fixed bottom-4 right-4 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm font-medium shadow-xl animate-in slide-in-from-bottom-4 duration-300 ${
@@ -941,471 +958,226 @@ export default function App() {
         </div>
       ) : (
         /* Logged in portal dashboard workspace */
-        /* Logged in portal dashboard workspace */
-        <div className="flex-1 flex flex-col md:flex-row bg-[#eaeaea] dark:bg-zinc-950 min-h-screen md:min-h-0">
+        <div className="flex-1 flex flex-col md:flex-row">
           
           {/* Navigation Sidebar */}
           {mobileSidebarOpen && (
             <div 
-              className="fixed inset-0 bg-black/40 z-35 md:hidden" 
+              className="fixed inset-0 bg-black/40 z-30 md:hidden" 
               onClick={() => setMobileSidebarOpen(false)}
             />
           )}
 
-          <nav className={`fixed md:relative top-0 left-0 h-screen md:h-auto w-64 bg-white dark:bg-zinc-900 border-r dark:border-zinc-800 p-6 flex-shrink-0 flex flex-col justify-between z-40 transition-transform duration-200 overflow-y-auto ${
+          <nav className={`fixed md:relative top-0 left-0 h-full md:h-auto w-64 bg-white dark:bg-zinc-900 border-r dark:border-zinc-800 p-4 space-y-2 flex-shrink-0 flex flex-col justify-between z-45 transition-transform duration-200 ${
             mobileSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
           }`}>
-            <div className="space-y-6">
-              {/* User Avatar + Welcome */}
-              {employee && (
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden shadow-sm border border-zinc-100 dark:border-zinc-800">
-                    {employee.photoUrl ? (
-                      <img src={employee.photoUrl} alt={employee.name} className="w-full h-full object-cover" />
-                    ) : (
-                      (employee.name || "").charAt(0)
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider leading-none">Welcome back,</p>
-                    <p className="font-extrabold text-sm text-slate-800 dark:text-white leading-tight mt-1">
-                      {employee.name ? employee.name.split(' ')[0] : 'User'}!
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Company block */}
-              <div className="bg-zinc-55 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-805 rounded-2xl p-3 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-zinc-500 dark:text-zinc-300 font-bold text-xs">
-                    RF
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider leading-none">Company</p>
-                    <p className="text-xs font-bold text-slate-800 dark:text-white truncate max-w-[120px] mt-1">Red Fox Hotel</p>
-                  </div>
-                </div>
-                <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+            <div className="space-y-1">
+              <div className="flex items-center justify-between px-3 py-2 md:hidden">
+                <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-widest">Self-Service</p>
+                <button onClick={() => setMobileSidebarOpen(false)} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-zinc-800">
+                  <X className="w-4 h-4 dark:text-white" />
+                </button>
               </div>
+              <p className="hidden md:block text-[10px] text-zinc-400 uppercase font-bold tracking-widest px-3 py-2">Self-Service</p>
+              
+              <button
+                onClick={() => { setActiveTab("DASHBOARD"); setMobileSidebarOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${
+                  activeTab === "DASHBOARD"
+                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/10"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <User className="w-4 h-4" />
+                Dashboard Home
+              </button>
 
-              {/* Navigation Menu */}
-              <div className="space-y-1">
-                {[
-                  { id: "DASHBOARD", label: "Dashboard", icon: LayoutDashboard },
-                  { id: "BIOMETRIC_ATTENDANCE", label: "Biometric Check", icon: Camera },
-                  { id: "ATTENDANCE", label: "Attendance Log", icon: Clock },
-                  { id: "LEAVES", label: "Leaves & Forms", icon: CalendarRange },
-                  { id: "ANNOUNCEMENTS", label: "Announcements", icon: Megaphone },
-                  { id: "DOCUMENTS", label: "Salary & Docs", icon: FileSpreadsheet },
-                  { id: "SUPPORT", label: "Support Tickets", icon: LifeBuoy },
-                  { id: "SETTINGS", label: "Settings", icon: SettingsIcon },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => { setActiveTab(item.id as any); setMobileSidebarOpen(false); }}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-bold tracking-tight transition-all ${
-                        isActive
-                          ? "bg-primary text-white shadow-lg shadow-primary/25"
-                          : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Icon className="w-4 h-4" />
-                        <span>{item.label}</span>
-                      </div>
-                      {item.id === "ANNOUNCEMENTS" && announcements.filter(a => !a.isRead).length > 0 && (
-                        <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-extrabold ${isActive ? "bg-white text-primary" : "bg-primary text-white"}`}>
-                          {announcements.filter(a => !a.isRead).length}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+              <button
+                onClick={() => { setActiveTab("BIOMETRIC_ATTENDANCE"); setMobileSidebarOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${
+                  activeTab === "BIOMETRIC_ATTENDANCE"
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <Camera className="w-4 h-4" />
+                Biometric Check-In
+              </button>
 
-            {/* Bottom Section */}
-            <div className="space-y-4 pt-6 mt-6 border-t border-zinc-100 dark:border-zinc-800/50">
-              {/* Red Card "Leave Balance" matching "Recent trips" */}
-              <div className="bg-primary text-white rounded-3xl p-4 space-y-3 shadow-md relative overflow-hidden">
-                <div className="absolute right-[-10px] top-[-10px] w-20 h-20 bg-white/5 rounded-full" />
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-[10px] uppercase font-bold tracking-widest text-white/80 leading-none">Leaves</p>
-                    <p className="text-xs font-bold mt-1">Casual & Sick</p>
-                  </div>
-                  <span className="text-[9px] bg-white/20 text-white font-extrabold px-2 py-0.5 rounded-full">
-                    Active
-                  </span>
-                </div>
-                <div className="flex justify-between items-end pt-2">
-                  <div className="flex gap-1.5">
-                    <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold">C</span>
-                    <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold">S</span>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-black leading-none">{stats.leaves + 11} Days</p>
-                    <p className="text-[8px] text-white/70 font-semibold mt-0.5">Remaining Balance</p>
-                  </div>
-                </div>
-              </div>
+              <button
+                onClick={() => { setActiveTab("ATTENDANCE"); setMobileSidebarOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${
+                  activeTab === "ATTENDANCE"
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <Clock className="w-4 h-4" />
+                Attendance History
+              </button>
 
-              {/* Dotted Create Request Button */}
               <button
                 onClick={() => { setActiveTab("LEAVES"); setMobileSidebarOpen(false); }}
-                className="w-full py-4 border-2 border-dashed border-zinc-200 dark:border-zinc-800 hover:border-primary dark:hover:border-primary/50 rounded-2xl flex flex-col items-center justify-center gap-1.5 group transition-colors bg-white dark:bg-zinc-900"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${
+                  activeTab === "LEAVES"
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                }`}
               >
-                <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 group-hover:bg-primary/10 flex items-center justify-center transition-colors">
-                  <Plus className="w-4 h-4 text-zinc-500 group-hover:text-primary transition-colors" />
-                </div>
-                <span className="text-[10px] text-zinc-400 group-hover:text-zinc-650 dark:group-hover:text-zinc-200 font-extrabold uppercase tracking-wider transition-colors">
-                  Create new Request
-                </span>
+                <Calendar className="w-4 h-4" />
+                Leaves & Corrections
               </button>
 
               <button
-                onClick={() => { handleLogout(); setMobileSidebarOpen(false); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold text-destructive hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                onClick={() => { setActiveTab("ANNOUNCEMENTS"); setMobileSidebarOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${
+                  activeTab === "ANNOUNCEMENTS"
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                }`}
               >
-                <LogOut className="w-4 h-4" />
-                <span>Sign Out</span>
+                <Megaphone className="w-4 h-4" />
+                Announcements
+              </button>
+
+              <button
+                onClick={() => { setActiveTab("DOCUMENTS"); setMobileSidebarOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${
+                  activeTab === "DOCUMENTS"
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                Salary & Documents
+              </button>
+
+              <button
+                onClick={() => { setActiveTab("SUPPORT"); setMobileSidebarOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${
+                  activeTab === "SUPPORT"
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <HelpCircle className="w-4 h-4" />
+                Support Ticket
+              </button>
+
+              <button
+                onClick={() => { setActiveTab("SETTINGS"); setMobileSidebarOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${
+                  activeTab === "SETTINGS"
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <SettingsIcon className="w-4 h-4" />
+                Settings
               </button>
             </div>
+
+            <button
+              onClick={() => { handleLogout(); setMobileSidebarOpen(false); }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-destructive hover:bg-red-50 dark:hover:bg-red-950/20 transition"
+            >
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </button>
           </nav>
 
           {/* Main viewport */}
-          <main className="flex-1 p-6 space-y-6 overflow-y-auto max-w-6xl w-full">
-            {/* Mobile Top Bar */}
-            {employee && (
-              <div className="flex items-center justify-between md:hidden bg-white dark:bg-zinc-900 border dark:border-zinc-800 p-4 rounded-3xl shadow-sm mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden">
+          <main className="flex-1 p-6 space-y-6 overflow-y-auto max-w-5xl">
+            
+            {activeTab === "DASHBOARD" && employee && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                {/* Profile card */}
+                <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row items-center gap-6">
+                  <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-3xl overflow-hidden shadow-inner">
                     {employee.photoUrl ? (
                       <img src={employee.photoUrl} alt={employee.name} className="w-full h-full object-cover" />
                     ) : (
                       (employee.name || "").charAt(0)
                     )}
                   </div>
-                  <span className="font-extrabold text-sm text-slate-800 dark:text-white">Red Fox Hotel</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setDarkMode(!darkMode)}
-                    className="p-2 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800"
-                  >
-                    {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                  </button>
-                  <button 
-                    onClick={() => setMobileSidebarOpen(true)}
-                    className="p-2 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800"
-                  >
-                    <Menu className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            )}
-            
-            {activeTab === "DASHBOARD" && employee && (
-              <div className="space-y-6 animate-in fade-in duration-300">
-                {/* Dashboard Header */}
-                <div className="hidden md:flex justify-between items-center pb-2">
-                  <div>
-                    <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">Portal Dashboard</h2>
-                    <p className="text-xs text-muted-foreground font-semibold mt-0.5">Real-time status check and hotel operations metrics</p>
+                  <div className="text-center md:text-left flex-1 space-y-1">
+                    <h3 className="font-extrabold text-xl dark:text-white leading-tight">{employee.name}</h3>
+                    <p className="text-sm text-muted-foreground">{employee.designation} · {employee.department}</p>
+                    <p className="text-xs text-zinc-400">{employee.branchName}</p>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <button
-                      onClick={() => setDarkMode(!darkMode)}
-                      className="p-2 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white rounded-xl bg-white dark:bg-zinc-900 border dark:border-zinc-800 shadow-sm transition"
-                    >
-                      {darkMode ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
-                    </button>
-                    <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 border dark:border-zinc-850 px-3 py-2 rounded-xl text-xs font-extrabold text-zinc-500 shadow-sm">
-                      <span>Shift Profile</span>
-                      <ChevronDown className="w-3.5 h-3.5" />
-                    </div>
+                  <div className="px-5 py-2.5 bg-muted/40 rounded-2xl text-center md:text-right border">
+                    <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Account Status</p>
+                    <span className="text-xs bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400 px-2 py-0.5 rounded-full font-bold uppercase mt-1 inline-block">
+                      {employee.accountStatus}
+                    </span>
                   </div>
                 </div>
 
-                {/* Main Visual Tracking Card (like the shipment track map) */}
-                <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-3xl p-6 shadow-sm grid grid-cols-1 lg:grid-cols-5 gap-6">
-                  {/* Left Side: Shift Tracking Data */}
-                  <div className="lg:col-span-2 space-y-4 flex flex-col justify-between">
+                {/* Metrics Stats Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Present Days</p>
+                    <p className="text-3xl font-extrabold text-green-600 font-mono">{stats.present}</p>
+                  </div>
+                  <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Absent Days</p>
+                    <p className="text-3xl font-extrabold text-red-500 font-mono">{stats.absent}</p>
+                  </div>
+                  <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Weekly Off</p>
+                    <p className="text-3xl font-extrabold text-blue-500 font-mono">{stats.weeklyOff}</p>
+                  </div>
+                  <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Approved Leaves</p>
+                    <p className="text-3xl font-extrabold text-purple-500 font-mono">{stats.leaves}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Shifts & Holidays */}
+                  <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-3">
+                    <h4 className="font-extrabold text-sm dark:text-white uppercase tracking-wider border-b pb-2">Upcoming Shifts & Holidays</h4>
                     <div className="space-y-3">
-                      <div className="flex gap-2">
-                        <span className="px-3 py-1 bg-primary text-white text-[10px] font-extrabold rounded-full uppercase tracking-wider">Tracking</span>
-                        <span className="px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-650 dark:text-zinc-300 text-[10px] font-extrabold rounded-full uppercase tracking-wider">Geofence</span>
-                        <span className="px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-650 dark:text-zinc-300 text-[10px] font-extrabold rounded-full uppercase tracking-wider">POI</span>
-                      </div>
+                      {schedule.length > 0 ? (
+                        schedule.slice(0, 2).map((s) => (
+                          <div key={s.id} className="flex justify-between items-center text-sm">
+                            <span className="font-medium text-slate-700 dark:text-zinc-300">{s.date}</span>
+                            <span className="text-xs text-zinc-500">{s.name} ({s.startTime} - {s.endTime})</span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No upcoming shifts assigned</p>
+                      )}
                       
-                      <div className="pt-2">
-                        <p className="text-xs text-zinc-400 font-semibold uppercase tracking-wider leading-none">Distance to geofence:</p>
-                        <div className="flex items-baseline gap-1 mt-1.5">
-                          <span className="text-3xl font-black tracking-tight text-slate-800 dark:text-white font-mono">120</span>
-                          <span className="text-sm font-extrabold text-zinc-400 uppercase">Meters</span>
-                          <span className="text-zinc-300 mx-2">/</span>
-                          <span className="text-lg font-black text-primary font-mono">Inside</span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1.5 pt-2">
-                        <p className="text-xs text-zinc-400 font-semibold uppercase tracking-wider leading-none">Work efficiency rating:</p>
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl font-black text-slate-800 dark:text-white font-mono leading-none">92%</span>
-                          <div className="flex-1 h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-primary rounded-full transition-all" style={{ width: "92%" }} />
+                      {holidays.length > 0 && (
+                        <div className="pt-2 border-t space-y-1">
+                          <p className="text-[10px] text-zinc-400 uppercase font-bold">Upcoming Holiday</p>
+                          <div className="flex justify-between text-xs text-zinc-500">
+                            <span>{holidays[0].name}</span>
+                            <span>{holidays[0].date}</span>
                           </div>
                         </div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2.5 pt-4">
-                      <button 
-                        onClick={() => setActiveTab("BIOMETRIC_ATTENDANCE")}
-                        className="flex-1 py-3 bg-primary hover:bg-primary-dark text-white rounded-2xl text-xs font-bold shadow-md shadow-primary/20 transition-all uppercase tracking-wider"
-                      >
-                        Check-in Now
-                      </button>
-                      <button 
-                        onClick={() => setActiveTab("ATTENDANCE")}
-                        className="py-3 px-4 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-650 dark:text-zinc-300 rounded-2xl text-xs font-bold transition-all uppercase tracking-wider"
-                      >
-                        View Log
-                      </button>
+                      )}
                     </div>
                   </div>
 
-                  {/* Right Side: Map Timeline Visual */}
-                  <div className="lg:col-span-3 min-h-[220px] bg-slate-50 dark:bg-zinc-800/40 rounded-2xl p-4 flex flex-col justify-between border border-dashed border-zinc-200 dark:border-zinc-800 relative overflow-hidden">
-                    {/* Visual Stylized Map Route */}
-                    <div className="absolute inset-0 opacity-10 dark:opacity-5">
-                      <div className="w-full h-full" style={{ backgroundImage: "radial-gradient(#000 1px, transparent 1px)", backgroundSize: "16px 16px" }} />
-                    </div>
-
-                    {/* SVG map road representation */}
-                    <div className="absolute inset-0 flex items-center justify-center p-8">
-                      <svg className="w-full h-full overflow-visible" viewBox="0 0 300 120" fill="none">
-                        <path 
-                          d="M10 60 C 80 10, 120 110, 200 30 C 240 -10, 260 90, 290 50" 
-                          stroke="#ef4444" 
-                          strokeWidth="4" 
-                          strokeLinecap="round" 
-                          fill="none" 
-                        />
-                        <circle cx="10" cy="60" r="10" fill="#ef4444" className="animate-pulse" />
-                        <text x="10" y="63" fill="#fff" fontSize="8" fontWeight="bold" textAnchor="middle">1</text>
-
-                        <circle cx="160" cy="55" r="10" fill="#ef4444" />
-                        <text x="160" y="58" fill="#fff" fontSize="8" fontWeight="bold" textAnchor="middle">2</text>
-
-                        <circle cx="290" cy="50" r="10" fill="#ef4444" />
-                        <text x="290" y="53" fill="#fff" fontSize="8" fontWeight="bold" textAnchor="middle">3</text>
-                      </svg>
-                    </div>
-
-                    {/* Geofence notice block */}
-                    <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm border dark:border-zinc-800 rounded-2xl p-4 shadow-sm max-w-[240px] ml-auto z-10 self-end">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] uppercase font-bold tracking-widest text-zinc-400 leading-none">Alerts & Notifications</span>
-                        <div className="w-2 h-2 rounded-full bg-primary animate-ping" />
-                      </div>
-                      <h5 className="font-extrabold text-xs text-slate-800 dark:text-white mt-2 leading-none">Geofence Verified</h5>
-                      <p className="text-[10px] text-zinc-400 mt-1.5 leading-normal">
-                        Device location matches Nungambakkam branch. Automated check-in active.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Middle Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Card 2: Shift Details (Shipment details in screenshot) */}
-                  <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-3xl p-6 shadow-sm lg:col-span-2 space-y-5">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-black text-sm text-slate-800 dark:text-white uppercase tracking-wider">Shift & Profile Details</h4>
-                      <button onClick={() => setActiveTab("SETTINGS")} className="text-[10px] text-zinc-400 font-extrabold underline hover:text-primary transition-colors">Read more</button>
-                    </div>
-
-                    <div className="flex items-center gap-4 border-b border-zinc-100 dark:border-zinc-800 pb-4">
-                      <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden">
-                        {employee.photoUrl ? (
-                          <img src={employee.photoUrl} alt={employee.name} className="w-full h-full object-cover" />
-                        ) : (
-                          (employee.name || "").charAt(0)
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-extrabold text-sm text-slate-800 dark:text-white leading-tight">{employee.name}</p>
-                        <p className="text-[10px] text-zinc-400 mt-1">{employee.employeeId} · {employee.designation || 'Front Desk'}</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <p className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider leading-none">Shift Hours</p>
-                        <p className="text-sm font-extrabold text-slate-800 dark:text-white mt-2">
-                          {schedule.length > 0 ? `${schedule[0].startTime} - ${schedule[0].endTime}` : '09:00 - 18:00'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider leading-none">Weekly Off</p>
-                        <p className="text-sm font-extrabold text-slate-800 dark:text-white mt-2">Sunday</p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider leading-none">Status</p>
-                        <span className="px-2.5 py-0.5 bg-primary text-white text-[9px] font-extrabold rounded-full uppercase tracking-wider mt-1.5 inline-block">
-                          {employee.accountStatus || 'Active'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center text-[10px] text-zinc-400 pt-3 border-t border-zinc-100 dark:border-zinc-800/50">
-                      <span>Date of Joining:</span>
-                      <span className="font-bold text-slate-700 dark:text-zinc-300">
-                        {employee.dateOfJoining ? new Date(employee.dateOfJoining).toLocaleDateString() : '28.10.2023'}
-                      </span>
-                    </div>
-                    {holidays && holidays.length > 0 && (
-                      <div className="flex justify-between items-center text-[10px] text-zinc-400 pt-2 leading-none">
-                        <span>Upcoming Holiday:</span>
-                        <span className="font-bold text-primary">
-                          {holidays[0].name} ({holidays[0].date})
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Card 3: Attendance Capacity Progress Bar (Current truck capacity) */}
-                  <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-black text-sm text-slate-800 dark:text-white uppercase tracking-wider">Attendance Rate</h4>
-                      <button onClick={() => setActiveTab("ATTENDANCE")} className="text-[10px] text-zinc-400 font-extrabold underline hover:text-primary transition-colors">Read more</button>
-                    </div>
-
-                    {/* Striped horizontal capacity progress bar */}
-                    <div className="my-6 space-y-2">
-                      <div className="h-12 w-full bg-zinc-100 dark:bg-zinc-800/40 rounded-2xl overflow-hidden relative border dark:border-zinc-800 flex items-center justify-center">
-                        <div 
-                          className="h-full bg-primary rounded-2xl absolute left-0 top-0 transition-all duration-500" 
-                          style={{ 
-                            width: "86%", 
-                            backgroundImage: "linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent)", 
-                            backgroundSize: "1rem 1rem" 
-                          }} 
-                        />
-                        <span className="z-10 font-black text-sm md:text-base text-white tracking-tight">86% Attendance</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px] text-zinc-400 font-semibold uppercase leading-none pb-1.5">
-                        <span>Code: {employee.employeeId}</span>
-                        <span className="text-primary font-bold">● Checked In</span>
-                      </div>
-                      <div className="flex justify-between text-[10px] text-zinc-400 pt-2 border-t dark:border-zinc-800/50 leading-none">
-                        <span>Expected Days:</span>
-                        <span className="font-bold text-slate-700 dark:text-zinc-300">30 Days</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bottom Row Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Card 4: Trends (Shipment trends in image) */}
-                  <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-3xl p-6 shadow-sm space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-black text-sm text-slate-800 dark:text-white uppercase tracking-wider">Weekly Work Hours</h4>
-                      <TrendingUp className="w-4 h-4 text-primary" />
-                    </div>
-
-                    {/* Tiny custom bar chart representing work hours */}
-                    <div className="h-32 flex items-end justify-between gap-1 pt-6 px-2">
-                      {[
-                        { day: "M", hrs: 8 },
-                        { day: "T", hrs: 8.5 },
-                        { day: "W", hrs: 9 },
-                        { day: "T", hrs: 8 },
-                        { day: "F", hrs: 9.5, highlight: true },
-                        { day: "S", hrs: 4 },
-                        { day: "S", hrs: 0 },
-                      ].map((item, idx) => (
-                        <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
-                          <div className="w-full relative flex flex-col items-center">
-                            <div 
-                              className={`w-2.5 rounded-full transition-all duration-300 ${item.highlight ? 'bg-primary' : 'bg-zinc-200 dark:bg-zinc-800 group-hover:bg-primary/50'}`} 
-                              style={{ height: `${(item.hrs / 10) * 80}px` }} 
-                            />
-                            <span className="absolute top-[-20px] scale-0 group-hover:scale-100 transition-transform bg-zinc-800 text-white text-[8px] font-bold px-1 py-0.5 rounded">
-                              {item.hrs}h
-                            </span>
+                  {/* Priority Announcements */}
+                  <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-3">
+                    <h4 className="font-extrabold text-sm dark:text-white uppercase tracking-wider border-b pb-2">Recent Announcements</h4>
+                    <div className="space-y-2">
+                      {announcements.length > 0 ? (
+                        announcements.slice(0, 2).map((a) => (
+                          <div key={a.id} className="p-3 bg-muted/30 border rounded-xl space-y-1">
+                            <div className="flex justify-between">
+                              <p className="font-bold text-xs text-slate-800 dark:text-white truncate">{a.title}</p>
+                              {!a.isRead && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground line-clamp-2">{a.content}</p>
                           </div>
-                          <span className="text-[9px] font-bold text-zinc-400 uppercase leading-none">{item.day}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Card 5: Efficiency (Route efficiency red card in image) */}
-                  <div className="bg-primary text-white rounded-3xl p-6 shadow-md relative overflow-hidden flex flex-col justify-between min-h-[160px]">
-                    <div className="absolute inset-0 opacity-15" style={{ backgroundImage: "radial-gradient(#fff 1px, transparent 1px)", backgroundSize: "12px 12px" }} />
-                    
-                    <div className="flex justify-between items-start z-10">
-                      <div>
-                        <p className="text-[10px] uppercase font-bold tracking-widest text-white/80 leading-none">Punctuality Score</p>
-                        <h4 className="text-sm font-extrabold mt-1.5">Monthly Average</h4>
-                      </div>
-                      <HelpCircle className="w-4 h-4 text-white/80" />
-                    </div>
-
-                    <div className="flex items-baseline gap-1 mt-4 z-10">
-                      <span className="text-5xl font-black tracking-tighter">96</span>
-                      <span className="text-xl font-bold">%</span>
-                    </div>
-
-                    <p className="text-[10px] text-white/80 font-medium z-10 leading-normal pt-3 border-t border-white/20">
-                      Excellent! You were on-time for 96% of your shifts this month. Keep it up!
-                    </p>
-                  </div>
-
-                  {/* Card 6: Chat / Announcements (Chat in image) */}
-                  <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col justify-between min-h-[220px] space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-black text-sm text-slate-800 dark:text-white uppercase tracking-wider">Feed & Announcements</h4>
-                      <MessageSquare className="w-4 h-4 text-zinc-400" />
-                    </div>
-
-                    {/* Chat messaging display */}
-                    <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-xs max-h-[120px]">
-                      <div className="flex flex-col items-start space-y-1">
-                        <span className="text-[9px] font-bold text-zinc-400 uppercase leading-none">HR / Operations</span>
-                        <div className="bg-zinc-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-2xl rounded-tl-none p-3 max-w-[90%] leading-relaxed">
-                          {announcements.length > 0 ? announcements[0].content : "Welcome to the new Employee Self-Service portal. Check your documents and shifts here."}
-                        </div>
-                      </div>
-                      
-                      <div className="flex flex-col items-end space-y-1">
-                        <span className="text-[9px] font-bold text-zinc-400 uppercase leading-none">Me</span>
-                        <div className="bg-primary text-white rounded-2xl rounded-tr-none p-3 max-w-[90%] leading-relaxed">
-                          Got it! Thank you.
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Quick input field mock */}
-                    <div className="flex gap-2 items-center bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800 rounded-2xl px-3 py-2">
-                      <span className="text-zinc-400 text-xs">@</span>
-                      <input 
-                        type="text" 
-                        placeholder="Message HR / Team..." 
-                        disabled
-                        className="flex-1 bg-transparent border-0 p-0 text-[11px] focus:ring-0 text-slate-800 dark:text-white focus:outline-none placeholder-zinc-400" 
-                      />
-                      <Send className="w-3.5 h-3.5 text-zinc-400 hover:text-primary transition-colors cursor-pointer" />
+                        ))
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No recent announcements</p>
+                      )}
                     </div>
                   </div>
                 </div>
