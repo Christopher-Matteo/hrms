@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
-import { useGetNotifications, useMarkAllNotificationsRead } from "@workspace/api-client-react";
+import { useGetNotifications, useMarkAllNotificationsRead, getGetNotificationsQueryKey } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, Building2, Layers, Clock, CalendarDays,
@@ -64,8 +65,43 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [location] = useLocation();
   const { user, logout } = useAuth();
-  const { data: notifications } = useGetNotifications();
+  const { toast } = useToast();
+  const [toastedIds, setToastedIds] = useState<Set<number>>(new Set());
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  const { data: notifications } = useGetNotifications({
+    query: {
+      queryKey: getGetNotificationsQueryKey(),
+      refetchInterval: 3000, // Poll notifications every 3 seconds
+    }
+  });
   const markAllRead = useMarkAllNotificationsRead();
+
+  useEffect(() => {
+    if (!notifications) return;
+
+    if (isInitialLoad) {
+      const ids = new Set(notifications.map(n => n.id));
+      setToastedIds(ids);
+      setIsInitialLoad(false);
+    } else {
+      const newUnread = notifications.filter(n => !n.isRead && !toastedIds.has(n.id));
+      if (newUnread.length > 0) {
+        newUnread.forEach(n => {
+          toast({
+            title: "New Employee Portal Request",
+            description: n.message,
+            variant: "default",
+          });
+        });
+        setToastedIds(prev => {
+          const next = new Set(prev);
+          newUnread.forEach(n => next.add(n.id));
+          return next;
+        });
+      }
+    }
+  }, [notifications, isInitialLoad, toastedIds, toast]);
 
   const unreadCount = notifications?.filter(n => !n.isRead).length ?? 0;
 

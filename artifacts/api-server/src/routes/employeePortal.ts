@@ -207,6 +207,27 @@ router.post("/attendance/correction", requireAuth(), async (req: AuthenticatedRe
     performedBy: req.user.id,
   });
 
+  // Get employee name and create notification for Super Admin
+  const [employee] = await db
+    .select()
+    .from(employeesTable)
+    .where(eq(employeesTable.id, req.user.employeeId));
+  const employeeName = employee ? `${employee.firstName} ${employee.lastName}` : "An employee";
+
+  const admins = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(or(eq(usersTable.role, "super_admin"), eq(usersTable.role, "hr_manager")));
+
+  for (const admin of admins) {
+    await db.insert(notificationsTable).values({
+      userId: admin.id,
+      type: "attendance_correction",
+      message: `Attendance correction request from ${employeeName} is pending approval`,
+      isRead: false,
+    });
+  }
+
   res.status(201).json(correction);
 });
 
@@ -289,6 +310,27 @@ router.post("/leaves/apply", requireAuth(), async (req: AuthenticatedRequest, re
     remarks: reason,
     performedBy: req.user.id,
   });
+
+  // Get employee name and create notification for Super Admin
+  const [employee] = await db
+    .select()
+    .from(employeesTable)
+    .where(eq(employeesTable.id, req.user.employeeId));
+  const employeeName = employee ? `${employee.firstName} ${employee.lastName}` : "An employee";
+
+  const admins = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(or(eq(usersTable.role, "super_admin"), eq(usersTable.role, "hr_manager")));
+
+  for (const admin of admins) {
+    await db.insert(notificationsTable).values({
+      userId: admin.id,
+      type: "leave_approval",
+      message: `Leave request from ${employeeName} is pending approval`,
+      isRead: false,
+    });
+  }
 
   res.status(201).json(leave);
 });
@@ -461,6 +503,27 @@ router.post("/shifts/swap", requireAuth(), async (req: AuthenticatedRequest, res
       status: "pending",
     })
     .returning();
+
+  // Get employee name and create notification for Super Admin
+  const [employee] = await db
+    .select()
+    .from(employeesTable)
+    .where(eq(employeesTable.id, req.user.employeeId));
+  const employeeName = employee ? `${employee.firstName} ${employee.lastName}` : "An employee";
+
+  const admins = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(or(eq(usersTable.role, "super_admin"), eq(usersTable.role, "hr_manager")));
+
+  for (const admin of admins) {
+    await db.insert(notificationsTable).values({
+      userId: admin.id,
+      type: "shift_swap",
+      message: `Shift swap request from ${employeeName} is pending approval`,
+      isRead: false,
+    });
+  }
 
   res.status(201).json(request);
 });
@@ -660,6 +723,27 @@ router.post("/support/tickets", requireAuth(), async (req: AuthenticatedRequest,
       status: "open",
     })
     .returning();
+
+  // Get employee name and create notification for Super Admin
+  const [employee] = await db
+    .select()
+    .from(employeesTable)
+    .where(eq(employeesTable.id, req.user.employeeId));
+  const employeeName = employee ? `${employee.firstName} ${employee.lastName}` : "An employee";
+
+  const admins = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(or(eq(usersTable.role, "super_admin"), eq(usersTable.role, "hr_manager")));
+
+  for (const admin of admins) {
+    await db.insert(notificationsTable).values({
+      userId: admin.id,
+      type: "support_ticket",
+      message: `New support ticket: '${title}' from ${employeeName}`,
+      isRead: false,
+    });
+  }
 
   res.status(201).json(ticket);
 });
