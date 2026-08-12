@@ -24,8 +24,10 @@ import {
   branchesTable,
   shiftsTable,
   payrollTable,
-  holidaysTable
+  holidaysTable,
+  weeklyOffPoliciesTable
 } from "@workspace/db";
+import { isEmployeeWeeklyOff } from "../lib/weeklyOffHelper";
 import { eq, and, desc, sql, or } from "drizzle-orm";
 import { requireAuth, type AuthenticatedRequest } from "./auth";
 import jwt from "jsonwebtoken";
@@ -93,10 +95,28 @@ router.get("/employees/me", requireAuth(), async (req: AuthenticatedRequest, res
     .from(branchesTable)
     .where(eq(branchesTable.id, employee.branchId));
 
+  // Load weekly off policy details
+  let weeklyOffPolicy: any = null;
+  if (employee.weeklyOffPolicyId) {
+    const [policy] = await db
+      .select()
+      .from(weeklyOffPoliciesTable)
+      .where(eq(weeklyOffPoliciesTable.id, employee.weeklyOffPolicyId));
+    if (policy) {
+      weeklyOffPolicy = {
+        id: policy.id,
+        name: policy.name,
+        policyType: policy.policyType,
+        offDays: policy.offDays ? JSON.parse(policy.offDays) : []
+      };
+    }
+  }
+
   res.json({
     ...employee,
     name: `${employee.firstName} ${employee.lastName}`,
     branchName: branch?.name ?? "Unknown Branch",
+    weeklyOffPolicy,
   });
 });
 
@@ -505,7 +525,115 @@ router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, 
     .where(eq(shiftScheduleTable.employeeId, req.user.employeeId))
     .orderBy(shiftScheduleTable.date);
 
-  res.json(list);
+  // Fetch all attendance records for this employee that are weekly offs
+  const weekoffs = await db
+    .select({ date: attendanceTable.date })
+    .from(attendanceTable)
+    .where(
+      and(
+        eq(attendanceTable.employeeId, req.user.employeeId),
+        eq(attendanceTable.status, "weekly_off")
+      )
+    );
+
+  const weekoffDates = new Set(weekoffs.map(w => w.date));
+
+  const listWithWeekoffs = list.map(item => ({
+    ...item,
+    isWeekoff: weekoffDates.has(item.date)
+  }));
+
+  res.json(listWithWeekoffs);
+});
+
+// Mark a date as weekly off
+router.post("/shifts/weekoff", requireAuth(), async (req: AuthenticatedRequest, res): Promise<void> => {
+  if (!req.user?.employeeId) {
+    res.status(400).json({ error: "User is not linked to an employee" });
+    return;
+  }
+
+  const { date } = req.body;
+  if (!date) {
+    res.status(400).json({ error: "Missing date" });
+    return;
+  }
+
+  // 1. Get employee and their policy
+  const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, req.user.employeeId));
+  if (!emp) {
+    res.status(404).json({ error: "Employee not found" });
+    return;
+  }
+
+  // 2. Fetch the policy details
+  let policy: any = null;
+  if (emp.weeklyOffPolicyId) {
+    [policy] = await db.select().from(weeklyOffPoliciesTable).where(eq(weeklyOffPoliciesTable.id, emp.weeklyOffPolicyId));
+  }
+
+  // 3. Count weekly off days already marked for this employee in this month
+  const monthStr = date.substring(0, 7); // e.g. "2026-08"
+  const existingRecords = await db
+    .select()
+    .from(attendanceTable)
+    .where(
+      and(
+        eq(attendanceTable.employeeId, emp.id),
+        sql`${attendanceTable.date}::text like ${monthStr + "%"}`
+      )
+    );
+
+  const weeklyOffCount = existingRecords.filter(r => r.status === "weekly_off").length;
+
+  // 4. Check policy limits
+  const policyType = policy?.policyType ?? "one_day_per_week";
+  const isHousekeeping = emp.department?.toLowerCase() === "housekeeping";
+
+  if (policyType === "one_week_per_month" || policyType === "one_day_per_month" || isHousekeeping) {
+    if (weeklyOffCount >= 1) {
+      res.status(400).json({ error: "You can only mark 1 week-off per month under your policy." });
+      return;
+    }
+  } else {
+    if (weeklyOffCount >= 4) {
+      res.status(400).json({ error: "You can only mark up to 4 week-offs per month under your policy." });
+      return;
+    }
+  }
+
+  // 5. Create or update the attendance record for that date
+  const [existing] = await db
+    .select()
+    .from(attendanceTable)
+    .where(and(eq(attendanceTable.employeeId, emp.id), eq(attendanceTable.date, date)));
+
+  if (existing) {
+    await db
+      .update(attendanceTable)
+      .set({
+        status: "weekly_off",
+        source: "EMPLOYEE_PORTAL",
+        remarks: "Marked Weekly Off via Employee Portal",
+      })
+      .where(eq(attendanceTable.id, existing.id));
+  } else {
+    await db.insert(attendanceTable).values({
+      employeeId: emp.id,
+      date,
+      status: "weekly_off",
+      source: "EMPLOYEE_PORTAL",
+      remarks: "Marked Weekly Off via Employee Portal",
+      homeBranchId: emp.branchId,
+      gpsVerified: false,
+      faceVerified: false,
+      livenessVerified: false,
+      photoVerified: false,
+      faceVerificationStatus: "Approved", // automatically approve weekoff attendance record
+    });
+  }
+
+  res.json({ success: true });
 });
 
 // Request shift swap

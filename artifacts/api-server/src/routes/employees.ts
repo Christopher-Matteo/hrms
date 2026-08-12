@@ -191,21 +191,44 @@ router.post("/employees/verify-email/confirm", async (req, res): Promise<void> =
 
 router.post("/employees", async (req, res): Promise<void> => {
   const {
-    firstName, lastName, email, phone, gender, dob, address, emergencyContact,
+    firstName, lastName, name, email, phone, gender, dob, address, emergencyContact,
     department, designation, branchId, shiftId, weeklyOffPolicyId,
     joiningDate, employmentType, salary, bankName, accountNumber, ifscCode,
-    upiId, panNumber, aadhaarNumber, photoUrl,
+    upiId, panNumber, aadhaarNumber, photoUrl, password,
   } = req.body;
 
+  // Name splitting logic
+  let finalFirstName = firstName ? firstName.trim() : "";
+  let finalLastName = lastName ? lastName.trim() : "";
+  if (name && !finalFirstName) {
+    const parts = name.trim().split(/\s+/);
+    finalFirstName = parts[0] || "";
+    finalLastName = parts.slice(1).join(" ") || "";
+  }
+
+  // Employee ID generation / validation
+  const empId = req.body.employeeId ? req.body.employeeId.trim().toUpperCase() : await generateEmployeeId();
+  if (req.body.employeeId) {
+    const [existingEmp] = await db.select().from(employeesTable).where(eq(employeesTable.employeeId, empId));
+    if (existingEmp) {
+      res.status(400).json({ error: `Employee ID ${empId} is already in use.` });
+      return;
+    }
+  }
+
+  // Email generation / validation
+  const cleanEmail = email ? email.trim().toLowerCase() : `${empId.toLowerCase()}@redfoxhotel.com`;
+  const [existingEmail] = await db.select().from(employeesTable).where(eq(employeesTable.email, cleanEmail));
+  if (existingEmail) {
+    res.status(400).json({ error: `Email ${cleanEmail} is already in use.` });
+    return;
+  }
+
   const missingFields: string[] = [];
-  if (!firstName) missingFields.push("First Name");
-  if (!lastName) missingFields.push("Last Name");
-  if (!email) missingFields.push("Email");
+  if (!finalFirstName) missingFields.push("First Name / Employee Name");
   if (!phone) missingFields.push("Phone");
   if (!department) missingFields.push("Department");
-  if (!designation) missingFields.push("Designation");
   if (!branchId) missingFields.push("Branch");
-  if (!joiningDate) missingFields.push("Joining Date");
   if (salary === undefined || salary === null || salary === "") missingFields.push("Monthly Salary");
 
   if (missingFields.length > 0) {
@@ -213,22 +236,27 @@ router.post("/employees", async (req, res): Promise<void> => {
     return;
   }
 
-  const empId = await generateEmployeeId();
+  const finalDesignation = designation ? designation.trim() : (department ? `${department.trim()} Staff` : "Staff");
+  const finalJoiningDate = joiningDate || new Date().toISOString().split("T")[0]!;
 
   const [employee] = await db
     .insert(employeesTable)
     .values({
       employeeId: empId,
-      firstName, lastName, email, phone,
+      firstName: finalFirstName,
+      lastName: finalLastName,
+      email: cleanEmail,
+      phone,
       gender: gender ?? "male",
       dob: dob ?? null,
       address: address ?? null,
       emergencyContact: emergencyContact ?? null,
-      department, designation,
+      department,
+      designation: finalDesignation,
       branchId: Number(branchId),
       shiftId: shiftId ? Number(shiftId) : null,
       weeklyOffPolicyId: weeklyOffPolicyId ? Number(weeklyOffPolicyId) : null,
-      joiningDate,
+      joiningDate: finalJoiningDate,
       employmentType: employmentType ?? "full_time",
       status: "active",
       emailVerified: true,
@@ -243,11 +271,12 @@ router.post("/employees", async (req, res): Promise<void> => {
     })
     .returning();
 
-  // Automatically create a user account with a default password (NAME + DOB Year)
-  const firstFour = firstName.substring(0, 4).toUpperCase();
+  // Password auto-generation or manual
+  const firstFour = finalFirstName.substring(0, 4).toUpperCase().padEnd(4, "X");
   const birthYear = dob ? new Date(dob).getFullYear() : 2000;
   const defaultPass = `${firstFour}${birthYear}`;
-  const passwordHash = crypto.createHash("sha256").update(defaultPass + "hrms_salt_2024").digest("hex");
+  const finalPassword = (password && password.trim().length >= 6) ? password.trim() : defaultPass;
+  const passwordHash = crypto.createHash("sha256").update(finalPassword + "hrms_salt_2024").digest("hex");
 
   let role = "employee";
   if (employee.employeeId === "EMP001") role = "hr_manager";
@@ -256,13 +285,14 @@ router.post("/employees", async (req, res): Promise<void> => {
   await db.insert(usersTable).values({
     email: employee.email,
     passwordHash,
-    name: `${firstName} ${lastName}`,
+    name: `${finalFirstName} ${finalLastName}`.trim(),
     role,
     branchId: employee.branchId,
     employeeId: employee.id,
   });
 
-  res.status(201).json(await formatEmployee(employee));
+  const formattedEmployee = await formatEmployee(employee);
+  res.status(201).json({ ...formattedEmployee, generatedPassword: finalPassword });
 });
 
 router.get("/employees/:id", async (req, res): Promise<void> => {

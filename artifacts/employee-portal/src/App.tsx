@@ -177,7 +177,7 @@ export default function App() {
       setStats({
         present,
         absent,
-        weeklyOff: 4,
+        weeklyOff: hist.filter((h: any) => h.status === "weekly_off").length,
         leaves: hist.filter((h: any) => h.status.includes("leave")).length,
       });
     } catch {}
@@ -263,6 +263,31 @@ export default function App() {
       const data = await res.json();
       setSchedule(data);
     } catch {}
+  };
+
+  const handleMarkWeekoff = async (date: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${BASE}/shifts/weekoff`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ date }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showFeedback("success", "Weekly off marked successfully!");
+        fetchSchedule(token);
+        fetchStats(token);
+        fetchAttendance(token, attendanceFilter);
+      } else {
+        showFeedback("error", data.error || "Failed to mark weekly off");
+      }
+    } catch (e) {
+      showFeedback("error", "Error connecting to server");
+    }
   };
 
   // ----------------------------------------------------
@@ -1138,16 +1163,49 @@ export default function App() {
                   <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-3">
                     <h4 className="font-extrabold text-sm dark:text-white uppercase tracking-wider border-b pb-2">Upcoming Shifts & Holidays</h4>
                     <div className="space-y-3">
-                      {schedule.length > 0 ? (
-                        schedule.slice(0, 2).map((s) => (
-                          <div key={s.id} className="flex justify-between items-center text-sm">
-                            <span className="font-medium text-slate-700 dark:text-zinc-300">{s.date}</span>
-                            <span className="text-xs text-zinc-500">{s.name} ({s.startTime} - {s.endTime})</span>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-xs text-muted-foreground">No upcoming shifts assigned</p>
-                      )}
+                      {(() => {
+                        const isHousekeeping = employee?.department?.toLowerCase() === "housekeeping" || employee?.weeklyOffPolicy?.policyType === "one_week_per_month" || employee?.weeklyOffPolicy?.policyType === "one_day_per_month";
+                        const limit = isHousekeeping ? 1 : 4;
+                        const weeklyOffCount = stats.weeklyOff || 0;
+                        const limitReached = weeklyOffCount >= limit;
+
+                        return schedule.length > 0 ? (
+                          schedule.slice(0, 7).map((s) => (
+                            <div key={s.id} className="flex justify-between items-center text-sm py-1.5 border-b border-zinc-100 dark:border-zinc-800 last:border-0">
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-slate-800 dark:text-zinc-200">{s.date}</span>
+                                <span className="text-xs text-zinc-500">
+                                  {s.isWeekoff ? (
+                                    <span className="text-blue-500 dark:text-blue-400 font-medium">Weekly Off (No Working)</span>
+                                  ) : (
+                                    `${s.name} (${s.startTime} - ${s.endTime})`
+                                  )}
+                                </span>
+                              </div>
+                              <div>
+                                {s.isWeekoff ? (
+                                  <span className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded font-bold uppercase">
+                                    Weekoff
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() => handleMarkWeekoff(s.date)}
+                                    className={`text-[10px] px-2 py-0.5 rounded font-bold transition-all border ${
+                                      limitReached
+                                        ? "bg-zinc-100 text-zinc-400 border-zinc-200 blur-[1px] opacity-40 pointer-events-none cursor-not-allowed"
+                                        : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-500 hover:text-white hover:border-blue-500"
+                                    }`}
+                                  >
+                                    Weekoff
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-xs text-muted-foreground">No upcoming shifts assigned</p>
+                        );
+                      })()}
                       
                       {holidays.length > 0 && (
                         <div className="pt-2 border-t space-y-1">

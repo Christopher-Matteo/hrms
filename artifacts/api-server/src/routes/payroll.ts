@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, payrollTable, employeesTable, attendanceTable, advancesTable, continueDutiesTable, branchesTable, settingsTable, holidaysTable, documentsTable, weeklyOffPoliciesTable, shiftsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { generatePayslipPdf, uploadFile } from "../lib/storage";
+import { isDateWeeklyOff } from "../lib/weeklyOffHelper";
 
 const router: IRouter = Router();
 
@@ -92,16 +93,9 @@ async function syncDraftPayroll(
   });
 
   // Load employee's weekly off policy
-  let offDays: string[] = ["Sunday"]; // default fallback
+  let policy: any = null;
   if (emp.weeklyOffPolicyId) {
-    const [policy] = await db.select().from(weeklyOffPoliciesTable).where(eq(weeklyOffPoliciesTable.id, emp.weeklyOffPolicyId));
-    if (policy?.offDays) {
-      try {
-        offDays = JSON.parse(policy.offDays);
-      } catch (e) {
-        // use fallback
-      }
-    }
+    [policy] = await db.select().from(weeklyOffPoliciesTable).where(eq(weeklyOffPoliciesTable.id, emp.weeklyOffPolicyId));
   }
 
   // Load holidays
@@ -126,7 +120,7 @@ async function syncDraftPayroll(
       status = att.status;
     } else if (holidayDates.has(dateStr)) {
       status = "public_holiday";
-    } else if (offDays.includes(dayName)) {
+    } else if (isDateWeeklyOff(dateObj, policy)) {
       status = "weekly_off";
     }
 

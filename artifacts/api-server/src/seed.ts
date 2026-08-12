@@ -89,6 +89,8 @@ async function seed() {
     { name: "Sunday Off", policyType: "one_day_per_week", offDays: '["Sunday"]' },
     { name: "Saturday & Sunday Off", policyType: "two_days_per_week", offDays: '["Saturday","Sunday"]' },
     { name: "Rotational Off", policyType: "rotational", offDays: null },
+    { name: "Housekeeping Monthly Off (1 Sunday/Month)", policyType: "one_week_per_month", offDays: '["Sunday"]' },
+    { name: "Standard 4-Week Off (4 Sundays/Month)", policyType: "four_weeks_per_month", offDays: '["Sunday"]' },
   ]).returning();
 
   // Super Admin User
@@ -112,6 +114,8 @@ async function seed() {
   const eveningShift = insertedShifts.find(s => s.name === "Evening Shift")!;
   const nightShift = insertedShifts.find(s => s.name === "Night Shift")!;
   const sundayOff = insertedPolicies.find(p => p.name === "Sunday Off")!;
+  const hkPolicy = insertedPolicies.find(p => p.name === "Housekeeping Monthly Off (1 Sunday/Month)")!;
+  const standard4WkPolicy = insertedPolicies.find(p => p.name === "Standard 4-Week Off (4 Sundays/Month)")!;
 
   const employees = [
     { employeeId: "EMP001", firstName: "Abhinesh", lastName: "M", email: "abhinesh@redfoxdemo.com", phone: "8270682113", gender: "male", dob: "2001-11-13", address: "ECR, Chennai", department: "Front Office", designation: "Front Office Executive", branchId: ecrSignature.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-01-15", employmentType: "full_time", status: "active", salary: "15000", emailVerified: true },
@@ -149,7 +153,15 @@ async function seed() {
     { employeeId: "EMP100", firstName: "Demo", lastName: "Tester", email: "demo.tester@redfoxdemo.com", phone: "9999999999", gender: "male", dob: "2000-01-01", address: "Nungambakkam, Chennai", department: "Front Office", designation: "Front Office Executive", branchId: nungambakkam.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-01-01", employmentType: "full_time", status: "active", salary: "10000", emailVerified: true },
   ];
 
-  await db.insert(employeesTable).values(employees);
+  const mappedEmployees = employees.map(emp => {
+    let policyId = standard4WkPolicy.id;
+    if (emp.department === "Housekeeping") {
+      policyId = hkPolicy.id;
+    }
+    return { ...emp, weeklyOffPolicyId: policyId };
+  });
+
+  await db.insert(employeesTable).values(mappedEmployees);
 
   // Create user accounts for all employees with default passwords (NAME + DOB Year)
   const insertedEmps = await db.select().from(employeesTable);

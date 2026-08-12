@@ -14,6 +14,8 @@ const POLICY_TYPES = [
   { value: "four_days_per_month", label: "Four Days Per Month" },
   { value: "custom", label: "Custom" },
   { value: "rotational", label: "Rotational" },
+  { value: "one_week_per_month", label: "One Week Per Month (1st week only)" },
+  { value: "four_weeks_per_month", label: "Four Weeks Per Month (first 4 weeks only)" },
 ];
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];

@@ -7,11 +7,12 @@
  */
 
 export interface EmployeeInput {
+  employeeId?: string;
   firstName: string;
-  lastName: string;
-  email: string;
+  lastName?: string;
+  email?: string;
   phone: string;
-  gender: string;
+  gender?: string;
   /** @nullable */
   dob?: string | null;
   /** @nullable */
@@ -19,15 +20,16 @@ export interface EmployeeInput {
   /** @nullable */
   emergencyContact?: string | null;
   department: string;
-  designation: string;
+  designation?: string;
   branchId: number;
   /** @nullable */
   shiftId?: number | null;
   /** @nullable */
   weeklyOffPolicyId?: number | null;
-  joiningDate: string;
-  employmentType: string;
+  joiningDate?: string;
+  employmentType?: string;
   salary: number;
+  password?: string;
   /** @nullable */
   bankName?: string | null;
   /** @nullable */

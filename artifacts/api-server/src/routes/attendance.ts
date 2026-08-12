@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, attendanceTable, employeesTable, auditLogsTable, attendanceCorrectionsTable, attendanceCorrectionHistoryTable, branchesTable, shiftsTable, holidaysTable, weeklyOffPoliciesTable } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
+import { isEmployeeWeeklyOff } from "../lib/weeklyOffHelper";
 
 const router: IRouter = Router();
 
@@ -57,20 +58,6 @@ function isLateByMoreThanTwoHours(shiftStartStr: string, checkInStr: string): bo
     diff += 1440;
   }
   return diff > 120;
-}
-
-function getEmployeeOffDays(emp: any, policies: any[]): string[] {
-  if (emp.weeklyOffPolicyId) {
-    const policy = policies.find(p => p.id === emp.weeklyOffPolicyId);
-    if (policy?.offDays) {
-      try {
-        return JSON.parse(policy.offDays);
-      } catch (e) {
-        // fallback
-      }
-    }
-  }
-  return ["Sunday"];
 }
 
 function formatRecord(
@@ -187,8 +174,7 @@ router.get("/attendance", async (req, res): Promise<void> => {
           const dayName = dateObj.toLocaleDateString("en-US", { weekday: "long" });
 
           const isHoliday = holidays.some(h => h.date === String(date) && (!h.branchId || h.branchId === emp.branchId));
-          const offDays = getEmployeeOffDays(emp, policies);
-          const isWeeklyOff = offDays.includes(dayName);
+          const isWeeklyOff = isEmployeeWeeklyOff(String(date), emp, policies);
 
           let finalStatus = "absent";
           let remarksText = "System: Absent due to missing check-in past 2-hour window";

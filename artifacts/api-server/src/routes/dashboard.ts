@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, employeesTable, attendanceTable, payrollTable, branchesTable, auditLogsTable, holidaysTable, weeklyOffPoliciesTable, shiftsTable } from "@workspace/db";
 import { eq, and, sql, gte } from "drizzle-orm";
+import { isEmployeeWeeklyOff } from "../lib/weeklyOffHelper";
 
 const router: IRouter = Router();
 
@@ -34,19 +35,7 @@ function isLateByMoreThanTwoHours(shiftStartStr: string, checkInStr: string): bo
   return diff > 120;
 }
 
-function getEmployeeOffDays(emp: any, policies: any[]): string[] {
-  if (emp.weeklyOffPolicyId) {
-    const policy = policies.find(p => p.id === emp.weeklyOffPolicyId);
-    if (policy?.offDays) {
-      try {
-        return JSON.parse(policy.offDays);
-      } catch (e) {
-        // fallback
-      }
-    }
-  }
-  return ["Sunday"];
-}
+
 
 router.get("/dashboard/stats", async (req, res): Promise<void> => {
   const todayDate = new Date();
@@ -85,8 +74,7 @@ router.get("/dashboard/stats", async (req, res): Promise<void> => {
       if (isHoliday) {
         status = "public_holiday";
       } else {
-        const offDays = getEmployeeOffDays(emp, policies);
-        if (offDays.includes(todayDayName)) {
+        if (isEmployeeWeeklyOff(today, emp, policies)) {
           status = "weekly_off";
         } else {
           let isPastWindow = true;
@@ -183,8 +171,7 @@ router.get("/dashboard/attendance-trend", async (req, res): Promise<void> => {
         if (isHoliday) {
           status = "public_holiday";
         } else {
-          const offDays = getEmployeeOffDays(emp, policies);
-          if (offDays.includes(dayName)) {
+          if (isEmployeeWeeklyOff(date, emp, policies)) {
             status = "weekly_off";
           } else {
             const isPastDate = date < todayStr;

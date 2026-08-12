@@ -1884,8 +1884,10 @@ components:
 
     EmployeeInput:
       type: object
-      required: [firstName, lastName, email, phone, gender, department, designation, branchId, joiningDate, employmentType, salary]
+      required: [firstName, phone, department, branchId, salary]
       properties:
+        employeeId:
+          type: string
         firstName:
           type: string
         lastName:
@@ -1918,6 +1920,8 @@ components:
           type: string
         salary:
           type: number
+        password:
+          type: string
         bankName:
           type: ["string", "null"]
         accountNumber:
@@ -2231,7 +2235,7 @@ components:
 
     PayrollRecord:
       type: object
-      required: [id, employeeId, month, basicSalary, netSalary, status]
+      required: [id, employeeId, month, basicSalary, netSalary, status, manualAttendanceCount]
       properties:
         id:
           type: integer
@@ -2288,6 +2292,8 @@ components:
         status:
           type: string
           enum: [draft, approved, paid]
+        manualAttendanceCount:
+          type: integer
         createdAt:
           type: string
 
