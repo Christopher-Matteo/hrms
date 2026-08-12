@@ -124,37 +124,39 @@ export default function EmployeeDetailPage() {
   function startEdit() {
     if (!employee) return;
     setForm({
-      firstName: employee.firstName,
-      lastName: employee.lastName,
-      email: employee.email,
-      phone: employee.phone,
-      status: employee.status,
-      designation: employee.designation,
-      salary: employee.salary,
-      address: employee.address,
-      bankName: employee.bankName,
-      accountNumber: employee.accountNumber,
-      ifscCode: employee.ifscCode,
-      upiId: employee.upiId,
-      gender: employee.gender,
-      dob: employee.dob,
-      emergencyContact: employee.emergencyContact,
-      panNumber: employee.panNumber,
-      aadhaarNumber: employee.aadhaarNumber,
       employeeId: employee.employeeId,
-      department: employee.department,
+      name: `${employee.firstName} ${employee.lastName}`.trim(),
+      phone: employee.phone,
+      dob: employee.dob,
       branchId: employee.branchId,
+      department: employee.department,
       shiftId: employee.shiftId,
+      salary: employee.salary,
       weeklyOffPolicyId: employee.weeklyOffPolicyId,
-      joiningDate: employee.joiningDate,
-      employmentType: employee.employmentType,
     });
     setEditing(true);
   }
 
   function handleSave() {
+    const nameParts = (String(form.name || "")).trim().split(/\s+/);
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.slice(1).join(" ") || "";
+
+    const submitData = {
+      employeeId: form.employeeId,
+      firstName,
+      lastName,
+      phone: form.phone,
+      dob: form.dob || null,
+      branchId: form.branchId ? Number(form.branchId) : null,
+      department: form.department,
+      shiftId: form.shiftId ? Number(form.shiftId) : null,
+      salary: Number(form.salary),
+      weeklyOffPolicyId: form.weeklyOffPolicyId ? Number(form.weeklyOffPolicyId) : null,
+    };
+
     updateEmployee.mutate(
-      { id, data: form as any },
+      { id, data: submitData as any },
       { onSuccess: () => { refetch(); setEditing(false); } }
     );
   }
@@ -191,12 +193,9 @@ export default function EmployeeDetailPage() {
         </Link>
         <div className="flex-1">
           <h1 className="text-xl font-bold">{employee.firstName} {employee.lastName}</h1>
-          <p className="text-sm text-muted-foreground">{employee.employeeId} · {employee.designation}</p>
+          <p className="text-sm text-zinc-500">{employee.employeeId}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge className={employee.status === "active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}>
-            {employee.status}
-          </Badge>
           {editing ? (
             <>
               <Button size="sm" variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
@@ -212,58 +211,30 @@ export default function EmployeeDetailPage() {
 
       <div className="space-y-6">
         <Card>
-          <CardHeader><CardTitle className="text-sm">Personal Information</CardTitle></CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {renderField("First Name", employee.firstName, "firstName")}
-              {renderField("Last Name", employee.lastName, "lastName")}
-              
-              {renderField("Email", employee.email, "email", "email")}
-
-              {renderField("Phone", employee.phone, "phone")}
-              {editing ? (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Gender</Label>
-                  <Select value={String(form.gender ?? "male")} onValueChange={(v) => setForm(f => ({ ...f, gender: v }))}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : (
-                renderField("Gender", employee.gender)
-              )}
-              {renderField("Date of Birth", employee.dob, "dob", "date")}
-              <div className="col-span-2">
-                {renderField("Address", employee.address, "address")}
-              </div>
-              {renderField("Emergency Contact", employee.emergencyContact, "emergencyContact")}
-              {renderField("PAN Number", employee.panNumber, "panNumber")}
-              {renderField("Aadhaar Number", employee.aadhaarNumber, "aadhaarNumber")}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Employment Information</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">Employee Information</CardTitle></CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {renderField("Employee ID", employee.employeeId, "employeeId")}
+              
               {editing ? (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Department</Label>
-                  <Select value={String(form.department ?? "")} onValueChange={(v) => setForm(f => ({ ...f, department: v }))}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select department" /></SelectTrigger>
-                    <SelectContent>{DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-                  </Select>
+                  <Label className="text-xs text-muted-foreground">Employee Name</Label>
+                  <Input
+                    value={String(form.name ?? "")}
+                    onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))}
+                    className="mt-1"
+                  />
                 </div>
               ) : (
-                renderField("Department", employee.department)
+                <div>
+                  <Label className="text-xs text-zinc-500">Employee Name</Label>
+                  <p className="text-sm font-medium mt-1">{employee.firstName} {employee.lastName}</p>
+                </div>
               )}
-              {renderField("Designation", employee.designation, "designation")}
+
+              {renderField("Mobile Number", employee.phone, "phone")}
+              {renderField("Date of Birth", employee.dob, "dob", "date")}
+
               {editing ? (
                 <div>
                   <Label className="text-xs text-muted-foreground">Branch</Label>
@@ -275,73 +246,44 @@ export default function EmployeeDetailPage() {
               ) : (
                 renderField("Branch", employee.branchName)
               )}
+
               {editing ? (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Shift</Label>
+                  <Label className="text-xs text-muted-foreground">Department</Label>
+                  <Select value={String(form.department ?? "")} onValueChange={(v) => setForm(f => ({ ...f, department: v }))}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select department" /></SelectTrigger>
+                    <SelectContent>{DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                renderField("Department", employee.department)
+              )}
+
+              {editing ? (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Shift Time</Label>
                   <Select value={String(form.shiftId ?? "")} onValueChange={(v) => setForm(f => ({ ...f, shiftId: v ? Number(v) : null }))}>
                     <SelectTrigger className="mt-1"><SelectValue placeholder="Select shift" /></SelectTrigger>
                     <SelectContent>{shifts?.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               ) : (
-                renderField("Shift", employee.shiftName)
+                renderField("Shift Time", employee.shiftName)
               )}
+
+              {renderField("Monthly Salary (₹)", Number(employee.salary).toLocaleString("en-IN"), "salary", "number")}
+
               {editing ? (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Weekly Off Policy</Label>
+                  <Label className="text-xs text-muted-foreground">Weekoff Policy</Label>
                   <Select value={String(form.weeklyOffPolicyId ?? "")} onValueChange={(v) => setForm(f => ({ ...f, weeklyOffPolicyId: v ? Number(v) : null }))}>
                     <SelectTrigger className="mt-1"><SelectValue placeholder="Select policy" /></SelectTrigger>
                     <SelectContent>{policies?.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               ) : (
-                renderField("Weekly Off Policy", employee.weeklyOffPolicyName)
+                renderField("Weekoff Policy", employee.weeklyOffPolicyName)
               )}
-              {renderField("Joining Date", employee.joiningDate, "joiningDate", "date")}
-              {editing ? (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Employment Type</Label>
-                  <Select value={String(form.employmentType ?? "")} onValueChange={(v) => setForm(f => ({ ...f, employmentType: v }))}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="full_time">Full Time</SelectItem>
-                      <SelectItem value="part_time">Part Time</SelectItem>
-                      <SelectItem value="contract">Contract</SelectItem>
-                      <SelectItem value="intern">Intern</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : (
-                renderField("Employment Type", employee.employmentType)
-              )}
-              {renderField("Salary (₹/month)", Number(employee.salary).toLocaleString("en-IN"), "salary", "number")}
-              {editing ? (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Status</Label>
-                  <Select value={String(form.status)} onValueChange={(v) => setForm(f => ({ ...f, status: v }))}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="terminated">Terminated</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : (
-                renderField("Status", employee.status)
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Bank Details</CardTitle></CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {renderField("Bank Name", employee.bankName, "bankName")}
-              {renderField("Account Number", employee.accountNumber, "accountNumber")}
-              {renderField("IFSC Code", employee.ifscCode, "ifscCode")}
-              {renderField("UPI ID", employee.upiId, "upiId")}
             </div>
           </CardContent>
         </Card>
