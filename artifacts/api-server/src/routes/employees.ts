@@ -33,7 +33,6 @@ async function formatEmployee(e: typeof employeesTable.$inferSelect) {
     email: e.email,
     phone: e.phone,
     gender: e.gender,
-    dob: e.dob,
     address: e.address,
     emergencyContact: e.emergencyContact,
     department: e.department,
@@ -191,7 +190,7 @@ router.post("/employees/verify-email/confirm", async (req, res): Promise<void> =
 
 router.post("/employees", async (req, res): Promise<void> => {
   const {
-    firstName, lastName, name, email, phone, gender, dob, address, emergencyContact,
+    firstName, lastName, name, email, phone, gender, address, emergencyContact,
     department, designation, branchId, shiftId, weeklyOffPolicyId,
     joiningDate, employmentType, salary, bankName, accountNumber, ifscCode,
     upiId, panNumber, aadhaarNumber, photoUrl, password,
@@ -248,7 +247,6 @@ router.post("/employees", async (req, res): Promise<void> => {
       email: cleanEmail,
       phone,
       gender: gender ?? "male",
-      dob: dob ?? null,
       address: address ?? null,
       emergencyContact: emergencyContact ?? null,
       department,
@@ -273,14 +271,13 @@ router.post("/employees", async (req, res): Promise<void> => {
 
   // Password auto-generation or manual
   const firstFour = finalFirstName.substring(0, 4).toUpperCase().padEnd(4, "X");
-  const birthYear = dob ? new Date(dob).getFullYear() : 2000;
-  const defaultPass = `${firstFour}${birthYear}`;
+  const defaultPass = firstFour;
   const finalPassword = (password && password.trim().length >= 6) ? password.trim() : defaultPass;
   const passwordHash = crypto.createHash("sha256").update(finalPassword + "hrms_salt_2024").digest("hex");
 
   let role = "employee";
-  if (employee.employeeId === "EMP001") role = "hr_manager";
-  else if (employee.employeeId === "EMP003") role = "branch_manager";
+  if (employee.employeeId === "EMP001" || employee.department === "HR") role = "hr_manager";
+  else if (employee.employeeId === "EMP003" || employee.designation.toLowerCase().includes("manager")) role = "branch_manager";
 
   await db.insert(usersTable).values({
     email: employee.email,
@@ -319,7 +316,7 @@ router.patch("/employees/:id", async (req, res): Promise<void> => {
 
   const updates: Record<string, unknown> = {};
   const fields = [
-    "firstName", "lastName", "email", "phone", "gender", "dob", "address",
+    "firstName", "lastName", "email", "phone", "gender", "address",
     "emergencyContact", "department", "designation", "branchId", "shiftId",
     "weeklyOffPolicyId", "joiningDate", "employmentType", "status", "salary",
     "bankName", "accountNumber", "ifscCode", "upiId", "panNumber", "aadhaarNumber", "photoUrl",
@@ -422,8 +419,8 @@ router.post("/employees/:id/password", async (req, res): Promise<void> => {
       .where(eq(usersTable.id, existingUser.id));
   } else {
     let role = "employee";
-    if (employee.employeeId === "EMP001") role = "hr_manager";
-    else if (employee.employeeId === "EMP003") role = "branch_manager";
+    if (employee.employeeId === "EMP001" || employee.department === "HR") role = "hr_manager";
+    else if (employee.employeeId === "EMP003" || employee.designation.toLowerCase().includes("manager")) role = "branch_manager";
 
     await db.insert(usersTable).values({
       email: employee.email,

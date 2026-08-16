@@ -21,7 +21,6 @@ export default function NewEmployeePage() {
     employeeId: "",
     name: "",
     phone: "",
-    dob: "",
     branchId: "",
     department: "",
     shiftId: "",
@@ -53,7 +52,6 @@ export default function NewEmployeePage() {
           employeeId: form.employeeId ? form.employeeId.trim() : undefined,
           name: form.name.trim(),
           phone: form.phone.trim(),
-          dob: form.dob || undefined,
           branchId: Number(form.branchId),
           department: form.department,
           shiftId: form.shiftId ? Number(form.shiftId) : undefined,
@@ -134,11 +132,6 @@ export default function NewEmployeePage() {
             <div>
               <Label htmlFor="emp-id">Employee ID</Label>
               <Input id="emp-id" className="mt-1" placeholder="Leave blank to auto-generate" value={form.employeeId} onChange={set("employeeId")} />
-            </div>
-
-            <div>
-              <Label htmlFor="emp-dob">Date of Birth</Label>
-              <Input id="emp-dob" className="mt-1" type="date" value={form.dob} onChange={set("dob")} />
             </div>
 
             <div>

@@ -127,7 +127,6 @@ export default function EmployeeDetailPage() {
       employeeId: employee.employeeId,
       name: `${employee.firstName} ${employee.lastName}`.trim(),
       phone: employee.phone,
-      dob: employee.dob,
       branchId: employee.branchId,
       department: employee.department,
       shiftId: employee.shiftId,
@@ -147,7 +146,6 @@ export default function EmployeeDetailPage() {
       firstName,
       lastName,
       phone: form.phone,
-      dob: form.dob || null,
       branchId: form.branchId ? Number(form.branchId) : null,
       department: form.department,
       shiftId: form.shiftId ? Number(form.shiftId) : null,
@@ -233,7 +231,6 @@ export default function EmployeeDetailPage() {
               )}
 
               {renderField("Mobile Number", employee.phone, "phone")}
-              {renderField("Date of Birth", employee.dob, "dob", "date")}
 
               {editing ? (
                 <div>

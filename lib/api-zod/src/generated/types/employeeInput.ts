@@ -14,8 +14,6 @@ export interface EmployeeInput {
   phone: string;
   gender?: string;
   /** @nullable */
-  dob?: string | null;
-  /** @nullable */
   address?: string | null;
   /** @nullable */
   emergencyContact?: string | null;

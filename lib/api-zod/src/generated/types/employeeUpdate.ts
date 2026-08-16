@@ -13,8 +13,6 @@ export interface EmployeeUpdate {
   phone?: string;
   gender?: string;
   /** @nullable */
-  dob?: string | null;
-  /** @nullable */
   address?: string | null;
   /** @nullable */
   emergencyContact?: string | null;

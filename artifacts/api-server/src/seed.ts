@@ -7,17 +7,6 @@ function hashPassword(password: string): string {
 }
 
 async function seed() {
-  console.log("Checking if database is already seeded...");
-  try {
-    const existingUsers = await db.select().from(usersTable).limit(1);
-    if (existingUsers.length > 0) {
-      console.log("Database already contains data. Skipping seeding to prevent overwriting existing data.");
-      return;
-    }
-  } catch (error) {
-    console.error("Error checking database state, proceeding with caution:", error);
-  }
-
   console.log("Seeding database...");
 
   // Truncate tables to ensure a clean seed matching the geofence branch requirements
@@ -74,14 +63,22 @@ async function seed() {
     { name: "Finance" },
     { name: "IT" },
     { name: "Sales & Marketing" },
+    { name: "Digital Marketing" },
   ]);
 
   // Shifts
   const insertedShifts = await db.insert(shiftsTable).values([
-    { name: "Morning Shift", startTime: "06:00", endTime: "14:00", gracePeriodMinutes: 10 },
-    { name: "Evening Shift", startTime: "14:00", endTime: "22:00", gracePeriodMinutes: 10 },
-    { name: "Night Shift", startTime: "22:00", endTime: "06:00", gracePeriodMinutes: 15 },
-    { name: "General Shift", startTime: "09:00", endTime: "18:00", gracePeriodMinutes: 15 },
+    { name: "9:00 AM to 9:00 PM", startTime: "09:00", endTime: "21:00", gracePeriodMinutes: 15 },
+    { name: "10:00 AM to 6:00 PM", startTime: "10:00", endTime: "18:00", gracePeriodMinutes: 15 },
+    { name: "9:00 AM to 7:00 PM", startTime: "09:00", endTime: "19:00", gracePeriodMinutes: 15 },
+    { name: "7:00 PM to 7:00 AM", startTime: "19:00", endTime: "07:00", gracePeriodMinutes: 15 },
+    { name: "9:00 PM to 9:00 AM", startTime: "21:00", endTime: "09:00", gracePeriodMinutes: 15 },
+    { name: "8:00 PM to 8:00 AM", startTime: "20:00", endTime: "08:00", gracePeriodMinutes: 15 },
+    { name: "10:00 AM to 10:00 PM", startTime: "10:00", endTime: "22:00", gracePeriodMinutes: 15 },
+    { name: "12:00 AM to 12:00 PM", startTime: "00:00", endTime: "12:00", gracePeriodMinutes: 15 },
+    { name: "Full Duty", startTime: "09:00", endTime: "09:00", gracePeriodMinutes: 15 },
+    { name: "11:00 AM to 9:00 PM", startTime: "11:00", endTime: "21:00", gracePeriodMinutes: 15 },
+    { name: "7:00 AM to 7:00 PM", startTime: "07:00", endTime: "19:00", gracePeriodMinutes: 15 },
   ]).returning();
 
   // Weekly Off Policies
@@ -109,79 +106,125 @@ async function seed() {
   const porur = insertedBranches.find(b => b.name === "Porur")!;
   const ecrSignature = insertedBranches.find(b => b.name === "ECR Redfox Signature")!;
 
-  const generalShift = insertedShifts.find(s => s.name === "General Shift")!;
-  const morningShift = insertedShifts.find(s => s.name === "Morning Shift")!;
-  const eveningShift = insertedShifts.find(s => s.name === "Evening Shift")!;
-  const nightShift = insertedShifts.find(s => s.name === "Night Shift")!;
   const sundayOff = insertedPolicies.find(p => p.name === "Sunday Off")!;
   const hkPolicy = insertedPolicies.find(p => p.name === "Housekeeping Monthly Off (1 Sunday/Month)")!;
   const standard4WkPolicy = insertedPolicies.find(p => p.name === "Standard 4-Week Off (4 Sundays/Month)")!;
 
-  const employees = [
-    { employeeId: "EMP001", firstName: "Abhinesh", lastName: "M", email: "abhinesh@redfoxdemo.com", phone: "8270682113", gender: "male", dob: "2001-11-13", address: "ECR, Chennai", department: "Front Office", designation: "Front Office Executive", branchId: ecrSignature.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-01-15", employmentType: "full_time", status: "active", salary: "15000", emailVerified: true },
-    { employeeId: "EMP002", firstName: "Akheem", lastName: "Kikiambe Nriame", email: "kikiamberiame@gmail.com", phone: "8838695618", gender: "male", dob: "2000-06-04", address: "Nungambakkam, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: nungambakkam.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-02-10", employmentType: "full_time", status: "active", salary: "14000", emailVerified: true },
-    { employeeId: "EMP003", firstName: "Amutha", lastName: "", email: "amutha@redfoxdemo.com", phone: "9876501003", gender: "female", dob: "1995-07-15", address: "ECR, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: ecrSignature.id, shiftId: eveningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-03-18", employmentType: "full_time", status: "active", salary: "16500", emailVerified: true },
-    { employeeId: "EMP004", firstName: "Arun", lastName: "B", email: "juntoro@gmail.com", phone: "6385349075", gender: "male", dob: "2005-03-04", address: "Nungambakkam, Chennai", department: "IT", designation: "Web Developer", branchId: nungambakkam.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-06-01", employmentType: "full_time", status: "active", salary: "150000", emailVerified: true },
-    { employeeId: "EMP005", firstName: "Ashok", lastName: "Rana", email: "ashok@redfoxdemo.com", phone: "8603353325", gender: "male", dob: "1997-05-25", address: "Porur, Chennai", department: "Front Office", designation: "Front Office Executive", branchId: porur.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2026-07-01", employmentType: "full_time", status: "active", salary: "18000", emailVerified: true },
-    { employeeId: "EMP006", firstName: "Athsentso", lastName: "", email: "athsentso@redfoxdemo.com", phone: "6909651251", gender: "male", dob: "2001-04-17", address: "ECR, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: ecrSignature.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2026-07-01", employmentType: "full_time", status: "active", salary: "14000", emailVerified: true },
-    { employeeId: "EMP009", firstName: "Chilanjeet", lastName: "", email: "chilanjeet@redfoxdemo.com", phone: "9876501007", gender: "male", dob: "1998-05-09", address: "Nungambakkam, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: nungambakkam.id, shiftId: eveningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-04-03", employmentType: "full_time", status: "active", salary: "17000", emailVerified: true },
-    { employeeId: "EMP008", firstName: "Chinna", lastName: "Thambi", email: "chinna@redfoxdemo.com", phone: "9876501008", gender: "male", dob: "1988-03-19", address: "ECR, Chennai", department: "Security", designation: "Security Guard", branchId: ecrSignature.id, shiftId: nightShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-02-22", employmentType: "full_time", status: "active", salary: "19000", emailVerified: true },
-    { employeeId: "EMP007", firstName: "Christopher", lastName: "", email: "chrisprimaryacc@gmail.com", phone: "9876501009", gender: "male", dob: "2005-09-17", address: "Nungambakkam, Chennai", department: "IT", designation: "Web Developer", branchId: nungambakkam.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2026-07-01", employmentType: "full_time", status: "active", salary: "15000", emailVerified: true },
-    { employeeId: "EMP010", firstName: "Dansurang", lastName: "Rai", email: "dansurang@redfoxdemo.com", phone: "9876501010", gender: "male", dob: "1995-10-17", address: "T-Nagar, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: redfoxTnagar.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-03-06", employmentType: "full_time", status: "active", salary: "17000", emailVerified: true },
-    { employeeId: "EMP012", firstName: "Deepak", lastName: "Kumar", email: "deepak@redfoxdemo.com", phone: "9876501012", gender: "male", dob: "1996-09-14", address: "T-Nagar, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: redstoneTnagar.id, shiftId: eveningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-02-19", employmentType: "full_time", status: "active", salary: "17000", emailVerified: true },
-    { employeeId: "EMP013", firstName: "Dheenan", lastName: "Raj", email: "dheenan@redfoxdemo.com", phone: "9876501013", gender: "male", dob: "1997-08-29", address: "T-Nagar, Chennai", department: "Front Office", designation: "Front Office Executive", branchId: redstoneTnagar.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-01-09", employmentType: "full_time", status: "active", salary: "18000", emailVerified: true },
-    { employeeId: "EMP014", firstName: "Elumalai", lastName: "M", email: "elumalai@redfoxdemo.com", phone: "9876501014", gender: "male", dob: "1987-12-01", address: "ECR, Chennai", department: "Maintenance", designation: "Maintenance Technician", branchId: ecrSignature.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-05-05", employmentType: "full_time", status: "active", salary: "22000", emailVerified: true },
-    { employeeId: "EMP015", firstName: "Gautham", lastName: "R", email: "gautham@redfoxdemo.com", phone: "9876501015", gender: "male", dob: "1998-02-18", address: "ECR, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: ecrSignature.id, shiftId: eveningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-03-13", employmentType: "full_time", status: "active", salary: "17000", emailVerified: true },
-    { employeeId: "EMP016", firstName: "Jagadees", lastName: "", email: "jagadeed@gmail.com", phone: "9876501016", gender: "male", dob: "1998-10-30", address: "Ambattur, Chennai", department: "IT", designation: "Digital Marketer", branchId: ambattur.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2026-07-01", employmentType: "full_time", status: "active", salary: "15000", emailVerified: true },
-    { employeeId: "EMP017", firstName: "Jagadhees", lastName: "R", email: "jagadhees@redfoxdemo.com", phone: "9876501017", gender: "male", dob: "1997-07-07", address: "ECR, Chennai", department: "Front Office", designation: "Front Office Executive", branchId: ecrSignature.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-01-28", employmentType: "full_time", status: "active", salary: "18000", emailVerified: true },
-    { employeeId: "EMP018", firstName: "Jay", lastName: "Kumar", email: "jay@redfoxdemo.com", phone: "9876501018", gender: "male", dob: "1995-11-18", address: "Nungambakkam, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: nungambakkam.id, shiftId: eveningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-03-21", employmentType: "full_time", status: "active", salary: "17000", emailVerified: true },
-    { employeeId: "EMP019", firstName: "Jithendran", lastName: "P", email: "jithendran@redfoxdemo.com", phone: "9876501019", gender: "male", dob: "1998-04-04", address: "T-Nagar, Chennai", department: "Front Office", designation: "Front Office Executive", branchId: redstoneTnagar.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-01-17", employmentType: "full_time", status: "active", salary: "18000", emailVerified: true },
-    { employeeId: "EMP020", firstName: "Kabita", lastName: "Ranna", email: "kabita@redfoxdemo.com", phone: "9876501020", gender: "female", dob: "1992-05-15", address: "Porur, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: porur.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-02-01", employmentType: "full_time", status: "active", salary: "16500", emailVerified: true },
-    { employeeId: "EMP021", firstName: "Lakshmikanth", lastName: "S", email: "lakshmikanth@redfoxdemo.com", phone: "9876501021", gender: "male", dob: "1990-03-02", address: "Ambattur, Chennai", department: "Front Office", designation: "Front Office Executive", branchId: ambattur.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-04-14", employmentType: "full_time", status: "active", salary: "20000", emailVerified: true },
-    { employeeId: "EMP022", firstName: "Meena", lastName: "D.P", email: "meenaprem3905@gmail.com", phone: "8122350869", gender: "female", dob: "2005-09-03", address: "Porur, Chennai", department: "Front Office", designation: "Front Office Executive", branchId: porur.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2026-02-07", employmentType: "full_time", status: "active", salary: "18000", emailVerified: true },
-    { employeeId: "EMP023", firstName: "Millan", lastName: "Narzary", email: "jiminjimin3155@gmail.com", phone: "8753932581", gender: "male", dob: "2009-05-03", address: "Nungambakkam, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: nungambakkam.id, shiftId: eveningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2026-07-01", employmentType: "full_time", status: "active", salary: "14000", emailVerified: true },
-    { employeeId: "EMP024", firstName: "Mohan", lastName: "Raj", email: "mohan@redfoxdemo.com", phone: "9876501024", gender: "male", dob: "1994-08-05", address: "T-Nagar, Chennai", department: "Front Office", designation: "Front Office Executive", branchId: redfoxTnagar.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-01-20", employmentType: "full_time", status: "active", salary: "18000", emailVerified: true },
-    { employeeId: "EMP025", firstName: "Pallab", lastName: "Roy", email: "pallab@redfoxdemo.com", phone: "9876501025", gender: "male", dob: "1996-07-27", address: "T-Nagar, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: redfoxTnagar.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-04-18", employmentType: "full_time", status: "active", salary: "17000", emailVerified: true },
-    { employeeId: "EMP026", firstName: "Rahul", lastName: "New", email: "rahul.new@redfoxdemo.com", phone: "9876501026", gender: "male", dob: "1997-12-08", address: "T-Nagar, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: redstoneTnagar.id, shiftId: eveningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-02-25", employmentType: "full_time", status: "active", salary: "17000", emailVerified: true },
-    { employeeId: "EMP027", firstName: "Rahul", lastName: "Old", email: "rahul.old@redfoxdemo.com", phone: "9876501027", gender: "male", dob: "1993-10-01", address: "T-Nagar, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: redfoxTnagar.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-03-08", employmentType: "full_time", status: "active", salary: "17000", emailVerified: true },
-    { employeeId: "EMP028", firstName: "Shanmuga", lastName: "Sundaram", email: "shanmuga@redfoxdemo.com", phone: "9876501028", gender: "male", dob: "1989-01-09", address: "Nungambakkam, Chennai", department: "HR", designation: "HR Executive", branchId: nungambakkam.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-01-10", employmentType: "full_time", status: "active", salary: "28000", emailVerified: true },
-    { employeeId: "EMP029", firstName: "Shanthi", lastName: "R", email: "shanthi@redfoxdemo.com", phone: "9876501029", gender: "female", dob: "1991-06-18", address: "Ambattur, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: ambattur.id, shiftId: eveningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-02-12", employmentType: "full_time", status: "active", salary: "16500", emailVerified: true },
-    { employeeId: "EMP030", firstName: "Tsalib", lastName: "Khan", email: "tsalib@redfoxdemo.com", phone: "9876501030", gender: "male", dob: "1994-11-11", address: "Ambattur, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: ambattur.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-05-14", employmentType: "full_time", status: "active", salary: "17000", emailVerified: true },
-    { employeeId: "EMP031", firstName: "Tsariba", lastName: "Devi", email: "tsariba@redfoxdemo.com", phone: "9876501031", gender: "female", dob: "1993-02-21", address: "ECR, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: ecrSignature.id, shiftId: eveningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-06-03", employmentType: "full_time", status: "active", salary: "17000", emailVerified: true },
-    { employeeId: "EMP032", firstName: "Usha", lastName: "Devi", email: "usha@redfoxdemo.com", phone: "9876501032", gender: "female", dob: "1995-04-14", address: "Nungambakkam, Chennai", department: "Housekeeping", designation: "Housekeeping Staff", branchId: nungambakkam.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-01-27", employmentType: "full_time", status: "active", salary: "16500", emailVerified: true },
-    { employeeId: "EMP033", firstName: "Vimalraj", lastName: "S", email: "vimalraj@redfoxdemo.com", phone: "9876501033", gender: "male", dob: "1997-05-26", address: "Porur, Chennai", department: "Front Office", designation: "Front Office Executive", branchId: porur.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-02-04", employmentType: "full_time", status: "active", salary: "18000", emailVerified: true },
-    { employeeId: "EMP100", firstName: "Demo", lastName: "Tester", email: "demo.tester@redfoxdemo.com", phone: "9999999999", gender: "male", dob: "2000-01-01", address: "Nungambakkam, Chennai", department: "Front Office", designation: "Front Office Executive", branchId: nungambakkam.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2024-01-01", employmentType: "full_time", status: "active", salary: "10000", emailVerified: true },
+  const branchMap: Record<string, number> = {
+    "Nungambakkam": nungambakkam.id,
+    "ECR": ecrSignature.id,
+    "Porur": porur.id,
+    "Tnagar Redfox": redfoxTnagar.id,
+    "Tnagar Redstone": redstoneTnagar.id,
+    "Ambattur": ambattur.id,
+  };
+
+  const shiftMap: Record<string, number> = {};
+  insertedShifts.forEach(s => {
+    shiftMap[s.name] = s.id;
+  });
+
+  const rawEmployees = [
+    { name: "Akheem", branch: "Nungambakkam", department: "Housekeeping", shift: "9:00 AM to 9:00 PM", phone: "8838695618", salary: 14000, gender: "male" },
+    { name: "Amudha", branch: "ECR", department: "Housekeeping", shift: "10:00 AM to 6:00 PM", phone: "9876501003", salary: 14000, gender: "female" },
+    { name: "Arun", branch: "Nungambakkam", department: "IT", shift: "9:00 AM to 7:00 PM", phone: "6385349075", salary: 15000, gender: "male" },
+    { name: "Ashok", branch: "Porur", department: "Housekeeping", shift: "7:00 PM to 7:00 AM", phone: "8603353325", salary: 13000, gender: "male" },
+    { name: "Chilanjeet", branch: "Nungambakkam", department: "Housekeeping", shift: "9:00 PM to 9:00 AM", phone: "9876501007", salary: 13000, gender: "male" },
+    { name: "Chinnathambi", branch: "ECR", department: "Security", shift: "8:00 PM to 8:00 AM", phone: "9876501008", salary: 15000, gender: "male" },
+    { name: "Christopher", branch: "Nungambakkam", department: "IT", shift: "9:00 AM to 7:00 PM", phone: "6369670130", salary: 15000, gender: "male" },
+    { name: "Danchusurang", branch: "Tnagar Redfox", department: "Housekeeping", shift: "10:00 AM to 10:00 PM", phone: "9394366226", salary: 13000, gender: "male" },
+    { name: "Elumalai", branch: "ECR", department: "Maintenance", shift: "9:00 AM to 9:00 PM", phone: "9655365993", salary: 22000, gender: "male" },
+    { name: "Eshwar", branch: "Tnagar Redstone", department: "Front Office", shift: "9:00 AM to 9:00 PM", phone: "7845343472", salary: 20000, gender: "male" },
+    { name: "Gowtham", branch: "ECR", department: "Housekeeping", shift: "12:00 AM to 12:00 PM", phone: "9876501015", salary: 13000, gender: "male" },
+    { name: "Jagathees", branch: "ECR", department: "Front Office", shift: "10:00 AM to 10:00 PM", phone: "7094660027", salary: 18000, gender: "male" },
+    { name: "Jagathees Waran", branch: "Nungambakkam", department: "Digital Marketing", shift: "9:00 AM to 7:00 PM", phone: "9042045671", salary: 15000, gender: "male" },
+    { name: "Jai", branch: "Nungambakkam", department: "Housekeeping", shift: "9:00 AM to 9:00 PM", phone: "8248818588", salary: 15000, gender: "male" },
+    { name: "Jithendran", branch: "Tnagar Redfox", department: "Front Office", shift: "9:00 PM to 9:00 AM", phone: "6374100163", salary: 17000, gender: "male" },
+    { name: "Kabita", branch: "Porur", department: "Housekeeping", shift: "Full Duty", phone: "8603353325", salary: 12000, gender: "female" },
+    { name: "Kim", branch: "Tnagar Redfox", department: "Housekeeping", shift: "9:00 AM to 9:00 PM", phone: "6001741996", salary: 12000, gender: "female" },
+    { name: "Krishna", branch: "Tnagar Redstone", department: "Housekeeping", shift: "9:00 AM to 9:00 PM", phone: "9395105213", salary: 12000, gender: "male" },
+    { name: "Lakshmi Kanth", branch: "Ambattur", department: "Front Office", shift: "Full Duty", phone: "6379746124", salary: 15000, gender: "male" },
+    { name: "Meena", branch: "Nungambakkam", department: "Front Office", shift: "9:00 AM to 7:00 PM", phone: "8122350869", salary: 15000, gender: "female" },
+    { name: "Milan", branch: "Nungambakkam", department: "Housekeeping", shift: "9:00 AM to 9:00 PM", phone: "8753932581", salary: 14000, gender: "male" },
+    { name: "Mohan Raj", branch: "Tnagar Redfox", department: "Front Office", shift: "9:00 AM to 9:00 PM", phone: "9003144819", salary: 18000, gender: "male" },
+    { name: "Pallab", branch: "Tnagar Redstone", department: "Housekeeping", shift: "9:00 PM to 9:00 AM", phone: "8856097909", salary: 14000, gender: "male" },
+    { name: "Rakesh", branch: "Porur", department: "Front Office", shift: "7:00 AM to 7:00 PM", phone: "7200982240", salary: 18000, gender: "male" },
+    { name: "Rithesh", branch: "Nungambakkam", department: "Front Office", shift: "9:00 PM to 9:00 AM", phone: "9025065824", salary: 15000, gender: "male" },
+    { name: "Santhi", branch: "Ambattur", department: "Housekeeping", shift: "Full Duty", phone: "6379746124", salary: 12000, gender: "female" },
+    { name: "Shanumuga Sundaram", branch: "Nungambakkam", department: "HR", shift: "9:00 AM to 7:00 PM", phone: "8220305867", salary: 15000, gender: "male" },
+    { name: "Usha", branch: "Nungambakkam", department: "Housekeeping", shift: "10:00 AM to 10:00 PM", phone: "8472908883", salary: 12000, gender: "female" },
+    { name: "Pandiyan", branch: "Nungambakkam", department: "Maintenance", shift: "11:00 AM to 9:00 PM", phone: "8807332035", salary: 26000, gender: "male" }
   ];
 
-  const mappedEmployees = employees.map(emp => {
-    let policyId = standard4WkPolicy.id;
+  const mappedEmployees = rawEmployees.map((emp, index) => {
+    const idNum = index + 1;
+    const employeeId = `EMP${String(idNum).padStart(3, "0")}`;
+    const nameParts = emp.name.trim().split(/\s+/);
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(" ");
+
+    const cleanFirstName = firstName.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const cleanLastName = lastName ? lastName.toLowerCase().replace(/[^a-z0-9]/g, "") : "";
+    const emailPrefix = cleanLastName ? `${cleanFirstName}.${cleanLastName}` : cleanFirstName;
+    const email = `${emailPrefix}@redfoxdemo.com`;
+    const branchId = branchMap[emp.branch];
+    const shiftId = shiftMap[emp.shift];
+    
+    let weeklyOffPolicyId = standard4WkPolicy.id;
     if (emp.department === "Housekeeping") {
-      policyId = hkPolicy.id;
+      weeklyOffPolicyId = hkPolicy.id;
     }
-    return { ...emp, weeklyOffPolicyId: policyId };
+
+    let designation = "Staff";
+    if (emp.department === "Housekeeping") designation = "Housekeeping Staff";
+    else if (emp.department === "IT") designation = "IT Support Specialist";
+    else if (emp.department === "Security") designation = "Security Guard";
+    else if (emp.department === "Maintenance") designation = "Maintenance Technician";
+    else if (emp.department === "Front Office") designation = "Front Office Executive";
+    else if (emp.department === "Digital Marketing") designation = "Digital Marketer";
+    else if (emp.department === "HR") designation = "HR Executive";
+
+    return {
+      employeeId,
+      firstName,
+      lastName,
+      email,
+      phone: emp.phone,
+      gender: emp.gender,
+      address: `${emp.branch}, Chennai`,
+      department: emp.department,
+      designation,
+      branchId,
+      shiftId: shiftId || null,
+      weeklyOffPolicyId,
+      joiningDate: "2024-01-15",
+      employmentType: "full_time",
+      status: "active",
+      salary: String(emp.salary),
+      emailVerified: true,
+    };
   });
 
   await db.insert(employeesTable).values(mappedEmployees);
 
-  // Create user accounts for all employees with default passwords (NAME + DOB Year)
+  // Create user accounts for all employees with default passwords (ONLY first 4 letters of name)
   const insertedEmps = await db.select().from(employeesTable);
   for (const emp of insertedEmps) {
     let role = "employee";
-    if (emp.employeeId === "EMP001") {
+    if (emp.department === "HR") {
       role = "hr_manager";
-    } else if (emp.employeeId === "EMP003") {
+    } else if (emp.employeeId === "EMP003" || emp.designation.toLowerCase().includes("manager")) {
       role = "branch_manager";
     }
 
-    const firstFour = emp.firstName.substring(0, 4).toUpperCase();
-    const birthYear = emp.dob ? new Date(emp.dob).getFullYear() : 2000;
-    const defaultPass = `${firstFour}${birthYear}`;
+    const firstFour = emp.firstName.substring(0, 4).toUpperCase().padEnd(4, "X");
+    const defaultPass = firstFour;
     const passwordHash = hashPassword(defaultPass);
 
     await db.insert(usersTable).values({
       email: emp.email,
       passwordHash,
-      name: `${emp.firstName} ${emp.lastName}`,
+      name: `${emp.firstName} ${emp.lastName}`.trim(),
       role,
       branchId: emp.branchId,
       employeeId: emp.id,

@@ -10,7 +10,6 @@ export const employeesTable = pgTable("employees", {
   email: text("email").notNull().unique(),
   phone: text("phone").notNull(),
   gender: text("gender").notNull().default("male"), // male, female, other
-  dob: date("dob", { mode: "string" }),
   address: text("address"),
   emergencyContact: text("emergency_contact"),
   department: text("department").notNull(),

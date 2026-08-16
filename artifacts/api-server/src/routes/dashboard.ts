@@ -264,33 +264,7 @@ router.get("/dashboard/recent-activities", async (req, res): Promise<void> => {
 });
 
 router.get("/dashboard/upcoming-birthdays", async (req, res): Promise<void> => {
-  const today = new Date();
-  const employees = await db
-    .select()
-    .from(employeesTable)
-    .where(and(eq(employeesTable.status, "active"), sql`${employeesTable.dob} is not null`));
-
-  const withBirthdays = employees
-    .filter(e => e.dob)
-    .map(e => {
-      const dob = new Date(e.dob!);
-      const nextBirthday = new Date(today.getFullYear(), dob.getMonth(), dob.getDate());
-      if (nextBirthday < today) nextBirthday.setFullYear(today.getFullYear() + 1);
-      const daysUntil = Math.ceil((nextBirthday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      return {
-        id: e.id,
-        name: `${e.firstName} ${e.lastName}`,
-        dob: e.dob,
-        department: e.department,
-        photoUrl: e.photoUrl,
-        daysUntil,
-      };
-    })
-    .filter(e => e.daysUntil <= 30)
-    .sort((a, b) => a.daysUntil - b.daysUntil)
-    .slice(0, 10);
-
-  res.json(withBirthdays);
+  res.json([]);
 });
 
 export default router;

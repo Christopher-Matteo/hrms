@@ -86,7 +86,6 @@ export interface Activity {
 export interface BirthdayEmployee {
   id: number;
   name: string;
-  dob: string;
   department: string;
   /** @nullable */
   photoUrl?: string | null;
@@ -246,8 +245,6 @@ export interface Employee {
   phone: string;
   gender: EmployeeGender;
   /** @nullable */
-  dob?: string | null;
-  /** @nullable */
   address?: string | null;
   /** @nullable */
   emergencyContact?: string | null;
@@ -293,8 +290,6 @@ export interface EmployeeInput {
   phone: string;
   gender?: string;
   /** @nullable */
-  dob?: string | null;
-  /** @nullable */
   address?: string | null;
   /** @nullable */
   emergencyContact?: string | null;
@@ -331,8 +326,6 @@ export interface EmployeeUpdate {
   email?: string;
   phone?: string;
   gender?: string;
-  /** @nullable */
-  dob?: string | null;
   /** @nullable */
   address?: string | null;
   /** @nullable */
