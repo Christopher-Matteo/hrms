@@ -28,7 +28,7 @@ import {
   weeklyOffPoliciesTable
 } from "@workspace/db";
 import { isEmployeeWeeklyOff } from "../lib/weeklyOffHelper";
-import { eq, and, desc, sql, or } from "drizzle-orm";
+import { eq, and, desc, sql, or, inArray } from "drizzle-orm";
 import { requireAuth, type AuthenticatedRequest } from "./auth";
 import jwt from "jsonwebtoken";
 import { downloadFile, generatePayslipPdf } from "../lib/storage";
@@ -511,7 +511,35 @@ router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, 
     return;
   }
 
-  const list = await db
+  // 1. Get employee's default shift
+  const [emp] = await db
+    .select({
+      id: employeesTable.id,
+      shiftId: employeesTable.shiftId,
+      shiftName: shiftsTable.name,
+      startTime: shiftsTable.startTime,
+      endTime: shiftsTable.endTime,
+    })
+    .from(employeesTable)
+    .leftJoin(shiftsTable, eq(employeesTable.shiftId, shiftsTable.id))
+    .where(eq(employeesTable.id, req.user.employeeId));
+
+  if (!emp) {
+    res.status(404).json({ error: "Employee not found" });
+    return;
+  }
+
+  // 2. Generate next 7 dates starting from today in IST (en-CA YYYY-MM-DD format)
+  const targetDates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    targetDates.push(dateStr);
+  }
+
+  // 3. Fetch custom shift schedules for these dates
+  const customSchedules = await db
     .select({
       id: shiftScheduleTable.id,
       date: shiftScheduleTable.date,
@@ -522,28 +550,58 @@ router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, 
     })
     .from(shiftScheduleTable)
     .innerJoin(shiftsTable, eq(shiftScheduleTable.shiftId, shiftsTable.id))
-    .where(eq(shiftScheduleTable.employeeId, req.user.employeeId))
-    .orderBy(shiftScheduleTable.date);
+    .where(
+      and(
+        eq(shiftScheduleTable.employeeId, req.user.employeeId),
+        inArray(shiftScheduleTable.date, targetDates)
+      )
+    );
 
-  // Fetch all attendance records for this employee that are weekly offs
+  const customScheduleMap = new Map(customSchedules.map(s => [s.date, s]));
+
+  // 4. Fetch marked weekly offs for these dates
   const weekoffs = await db
     .select({ date: attendanceTable.date })
     .from(attendanceTable)
     .where(
       and(
         eq(attendanceTable.employeeId, req.user.employeeId),
-        eq(attendanceTable.status, "weekly_off")
+        eq(attendanceTable.status, "weekly_off"),
+        inArray(attendanceTable.date, targetDates)
       )
     );
-
   const weekoffDates = new Set(weekoffs.map(w => w.date));
 
-  const listWithWeekoffs = list.map(item => ({
-    ...item,
-    isWeekoff: weekoffDates.has(item.date)
-  }));
+  // 5. Build final list of 7 days
+  const list = targetDates.map((dateStr, index) => {
+    const custom = customScheduleMap.get(dateStr);
+    const isWeekoff = weekoffDates.has(dateStr);
 
-  res.json(listWithWeekoffs);
+    if (custom) {
+      return {
+        id: custom.id,
+        date: dateStr,
+        shiftId: custom.shiftId,
+        name: custom.name,
+        startTime: custom.startTime,
+        endTime: custom.endTime,
+        isWeekoff,
+      };
+    } else {
+      // Fallback to default shift
+      return {
+        id: -100 - index, // virtual negative id to avoid conflicts
+        date: dateStr,
+        shiftId: emp.shiftId || 0,
+        name: emp.shiftName || "Standard Shift",
+        startTime: emp.startTime || "09:00 AM",
+        endTime: emp.endTime || "07:00 PM",
+        isWeekoff,
+      };
+    }
+  });
+
+  res.json(list);
 });
 
 // Mark a date as weekly off
