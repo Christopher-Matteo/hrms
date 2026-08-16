@@ -1158,7 +1158,7 @@ export default function App() {
                         const limitReached = weeklyOffCount >= limit;
 
                         return schedule.length > 0 ? (
-                          schedule.slice(0, 7).map((s) => (
+                          schedule.slice(0, 1).map((s) => (
                             <div key={s.id} className="flex justify-between items-center text-sm py-1.5 border-b border-zinc-100 dark:border-zinc-800 last:border-0">
                               <div className="flex flex-col">
                                 <span className="font-semibold text-slate-800 dark:text-zinc-200">{s.date}</span>
@@ -1176,16 +1176,14 @@ export default function App() {
                                     Weekoff
                                   </span>
                                 ) : (
-                                  <button
-                                    onClick={() => handleMarkWeekoff(s.date)}
-                                    className={`text-[10px] px-2 py-0.5 rounded font-bold transition-all border ${
-                                      limitReached
-                                        ? "bg-zinc-100 text-zinc-400 border-zinc-200 blur-[1px] opacity-40 pointer-events-none cursor-not-allowed"
-                                        : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-500 hover:text-white hover:border-blue-500"
-                                    }`}
-                                  >
-                                    Weekoff
-                                  </button>
+                                  !limitReached && (
+                                    <button
+                                      onClick={() => handleMarkWeekoff(s.date)}
+                                      className="text-[10px] px-2 py-0.5 rounded font-bold transition-all border bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-500 hover:text-white hover:border-blue-500"
+                                    >
+                                      Weekoff
+                                    </button>
+                                  )
                                 )}
                               </div>
                             </div>
