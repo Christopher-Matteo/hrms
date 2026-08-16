@@ -6,7 +6,8 @@ import {
   attendanceTable,
   faceEmbeddingsTable,
   auditLogsTable,
-  shiftsTable
+  shiftsTable,
+  shiftScheduleTable
 } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 
@@ -220,11 +221,18 @@ router.post("/kiosk/verify-face", async (req, res): Promise<void> => {
   }
 
   let shift: any = null;
-  if (employee.shiftId) {
+  const todayDateStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const [todaySchedule] = await db
+    .select()
+    .from(shiftScheduleTable)
+    .where(and(eq(shiftScheduleTable.employeeId, employee.id), eq(shiftScheduleTable.date, todayDateStr)));
+
+  const activeShiftId = todaySchedule ? todaySchedule.shiftId : employee.shiftId;
+  if (activeShiftId) {
     [shift] = await db
       .select()
       .from(shiftsTable)
-      .where(eq(shiftsTable.id, employee.shiftId));
+      .where(eq(shiftsTable.id, activeShiftId));
   }
 
   if (employee.status !== "active" || employee.accountStatus !== "active") {

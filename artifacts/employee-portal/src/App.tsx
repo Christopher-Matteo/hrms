@@ -64,7 +64,6 @@ export default function App() {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
-  const [holidays, setHolidays] = useState<any[]>([]);
   const [schedule, setSchedule] = useState<any[]>([]);
 
   // Apply Form Inputs
@@ -158,7 +157,6 @@ export default function App() {
     fetchAnnouncements(activeToken);
     fetchDocuments(activeToken);
     fetchTickets(activeToken);
-    fetchHolidays(activeToken);
     fetchSchedule(activeToken);
   };
 
@@ -242,16 +240,6 @@ export default function App() {
       });
       const data = await res.json();
       setTickets(data);
-    } catch {}
-  };
-
-  const fetchHolidays = async (t: string) => {
-    try {
-      const res = await fetch(`${BASE}/holidays`, {
-        headers: { "Authorization": `Bearer ${t}` },
-      });
-      const data = await res.json();
-      setHolidays(data);
     } catch {}
   };
 
@@ -1161,7 +1149,7 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Shifts & Holidays */}
                   <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-3">
-                    <h4 className="font-extrabold text-sm dark:text-white uppercase tracking-wider border-b pb-2">Upcoming Shifts & Holidays</h4>
+                    <h4 className="font-extrabold text-sm dark:text-white uppercase tracking-wider border-b pb-2">Upcoming Shifts</h4>
                     <div className="space-y-3">
                       {(() => {
                         const isHousekeeping = employee?.department?.toLowerCase() === "housekeeping" || employee?.weeklyOffPolicy?.policyType === "one_week_per_month" || employee?.weeklyOffPolicy?.policyType === "one_day_per_month";
@@ -1206,16 +1194,6 @@ export default function App() {
                           <p className="text-xs text-muted-foreground">No upcoming shifts assigned</p>
                         );
                       })()}
-                      
-                      {holidays.length > 0 && (
-                        <div className="pt-2 border-t space-y-1">
-                          <p className="text-[10px] text-zinc-400 uppercase font-bold">Upcoming Holiday</p>
-                          <div className="flex justify-between text-xs text-zinc-500">
-                            <span>{holidays[0].name}</span>
-                            <span>{holidays[0].date}</span>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
 

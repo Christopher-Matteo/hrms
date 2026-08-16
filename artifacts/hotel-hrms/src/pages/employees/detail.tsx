@@ -1,14 +1,14 @@
 import { useRoute, Link } from "wouter";
-import { useGetEmployee, useUpdateEmployee, useGetBranches, useGetShifts, useGetWeeklyOffPolicies } from "@workspace/api-client-react";
+import { useGetEmployee, useUpdateEmployee, useGetBranches, useGetShifts, useGetWeeklyOffPolicies, useGetShiftSchedules, useAssignShiftSchedule } from "@workspace/api-client-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Save } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ArrowLeft, Save, Plus } from "lucide-react";
 
 const BASE = (import.meta as any).env.VITE_API_URL ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
 
@@ -32,9 +32,16 @@ export default function EmployeeDetailPage() {
   const { data: branches } = useGetBranches();
   const { data: shifts } = useGetShifts();
   const { data: policies } = useGetWeeklyOffPolicies();
+  const { data: schedules, refetch: refetchSchedules } = useGetShiftSchedules({ employeeId: id });
+  const assignSchedule = useAssignShiftSchedule();
   const updateEmployee = useUpdateEmployee();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({});
+
+  // Shift schedule assignment state
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleForm, setScheduleForm] = useState({ date: "", shiftId: "" });
+  const [scheduleError, setScheduleError] = useState("");
 
   // Email verification dialog states
   const [verificationOpen, setVerificationOpen] = useState(false);
@@ -47,6 +54,31 @@ export default function EmployeeDetailPage() {
   const [manualPassword, setManualPassword] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  function handleAssignSchedule(e: React.FormEvent) {
+    e.preventDefault();
+    if (!scheduleForm.date || !scheduleForm.shiftId) {
+      setScheduleError("Both date and shift are required");
+      return;
+    }
+    setScheduleError("");
+    assignSchedule.mutate({
+      data: {
+        employeeId: id,
+        shiftId: Number(scheduleForm.shiftId),
+        date: scheduleForm.date
+      }
+    }, {
+      onSuccess: () => {
+        refetchSchedules();
+        setScheduleOpen(false);
+        setScheduleForm({ date: "", shiftId: "" });
+      },
+      onError: (err: any) => {
+        setScheduleError(err?.message || "Failed to assign shift schedule");
+      }
+    });
+  }
 
   const handleSetPassword = async () => {
     if (!manualPassword || manualPassword.length < 6) return;
@@ -314,6 +346,99 @@ export default function EmployeeDetailPage() {
             >
               {passwordLoading ? "Setting..." : "Set Password"}
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-bold">Shift Schedule Changes</CardTitle>
+            <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline" className="h-7 gap-1">
+                  <Plus className="w-3.5 h-3.5" /> Assign Shift
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Assign Custom Shift</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleAssignSchedule} className="space-y-4 mt-2">
+                  <div>
+                    <Label>Select Date *</Label>
+                    <Input
+                      type="date"
+                      className="mt-1"
+                      value={scheduleForm.date}
+                      onChange={(e) => setScheduleForm(prev => ({ ...prev, date: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label>Select Shift *</Label>
+                    <Select
+                      value={scheduleForm.shiftId}
+                      onValueChange={(v) => setScheduleForm(prev => ({ ...prev, shiftId: v }))}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Choose shift" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {shifts?.map(s => (
+                          <SelectItem key={s.id} value={String(s.id)}>
+                            {s.name} ({s.startTime} - {s.endTime})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {scheduleError && <p className="text-xs text-destructive">{scheduleError}</p>}
+                  <div className="flex gap-2 justify-end">
+                    <Button type="button" variant="outline" onClick={() => setScheduleOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={assignSchedule.isPending}>
+                      {assignSchedule.isPending ? "Assigning..." : "Assign Shift"}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-4">
+              View and schedule custom shift timings for specific dates to ensure correct attendance records.
+            </p>
+            {schedules && schedules.length > 0 ? (
+              <div className="overflow-x-auto border rounded-lg">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="border-b bg-muted/50 font-semibold">
+                      <th className="p-2">Date</th>
+                      <th className="p-2">Shift Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {schedules.map(sched => (
+                      <tr key={sched.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <td className="p-2 font-mono font-medium">{sched.date}</td>
+                        <td className="p-2">
+                          <span className="font-semibold text-slate-800 dark:text-zinc-200">
+                            {sched.shiftName}
+                          </span>{" "}
+                          <span className="text-[10px] text-zinc-500">
+                            ({sched.startTime} - {sched.endTime})
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground text-center py-6 bg-muted/20 border border-dashed rounded-lg">
+                No custom shift timings scheduled. Standard shift applies.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

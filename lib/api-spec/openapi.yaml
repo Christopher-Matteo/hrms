@@ -440,6 +440,56 @@ paths:
         "204":
           description: No Content
 
+  /shifts/schedules:
+    get:
+      operationId: getShiftSchedules
+      tags: [shifts]
+      summary: List shift schedules
+      parameters:
+        - name: employeeId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ShiftSchedule"
+    post:
+      operationId: assignShiftSchedule
+      tags: [shifts]
+      summary: Assign shift schedule to an employee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShiftScheduleInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ShiftSchedule"
+
   # WEEKLY OFF POLICIES
   /weekly-off-policies:
     get:
@@ -1773,6 +1823,42 @@ components:
           type: string
         gracePeriodMinutes:
           type: integer
+
+    ShiftSchedule:
+      type: object
+      required: [id, employeeId, date, shiftId]
+      properties:
+        id:
+          type: integer
+        employeeId:
+          type: integer
+        date:
+          type: string
+        shiftId:
+          type: integer
+        shiftName:
+          type: ["string", "null"]
+        startTime:
+          type: ["string", "null"]
+        endTime:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    ShiftScheduleInput:
+      type: object
+      required: [employeeId, shiftId]
+      properties:
+        employeeId:
+          type: integer
+        shiftId:
+          type: integer
+        date:
+          type: string
+        dates:
+          type: array
+          items:
+            type: string
 
     WeeklyOffPolicy:
       type: object

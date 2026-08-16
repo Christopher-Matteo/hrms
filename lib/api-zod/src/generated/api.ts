@@ -396,6 +396,51 @@ export const DeleteShiftResponse = zod.void()
 
 
 /**
+ * @summary List shift schedules
+ */
+export const GetShiftSchedulesQueryParams = zod.object({
+  "employeeId": zod.coerce.number().optional(),
+  "startDate": zod.coerce.string().optional(),
+  "endDate": zod.coerce.string().optional()
+})
+
+export const GetShiftSchedulesResponseItem = zod.object({
+  "id": zod.number(),
+  "employeeId": zod.number(),
+  "date": zod.string(),
+  "shiftId": zod.number(),
+  "shiftName": zod.string().nullish(),
+  "startTime": zod.string().nullish(),
+  "endTime": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+})
+export const GetShiftSchedulesResponse = zod.array(GetShiftSchedulesResponseItem)
+
+
+/**
+ * @summary Assign shift schedule to an employee
+ */
+export const AssignShiftScheduleBody = zod.object({
+  "employeeId": zod.number(),
+  "shiftId": zod.number(),
+  "date": zod.string().optional(),
+  "dates": zod.array(zod.string()).optional()
+})
+
+export const AssignShiftScheduleResponseItem = zod.object({
+  "id": zod.number(),
+  "employeeId": zod.number(),
+  "date": zod.string(),
+  "shiftId": zod.number(),
+  "shiftName": zod.string().nullish(),
+  "startTime": zod.string().nullish(),
+  "endTime": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+})
+export const AssignShiftScheduleResponse = zod.array(AssignShiftScheduleResponseItem)
+
+
+/**
  * @summary List all weekly off policies
  */
 export const GetWeeklyOffPoliciesResponseItem = zod.object({

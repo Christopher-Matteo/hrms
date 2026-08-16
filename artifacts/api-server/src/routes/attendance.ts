@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, attendanceTable, employeesTable, auditLogsTable, attendanceCorrectionsTable, attendanceCorrectionHistoryTable, branchesTable, shiftsTable, holidaysTable, weeklyOffPoliciesTable } from "@workspace/db";
+import { db, attendanceTable, employeesTable, auditLogsTable, attendanceCorrectionsTable, attendanceCorrectionHistoryTable, branchesTable, shiftsTable, holidaysTable, weeklyOffPoliciesTable, shiftScheduleTable } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
 import { isEmployeeWeeklyOff } from "../lib/weeklyOffHelper";
 
@@ -192,8 +192,13 @@ router.get("/attendance", async (req, res): Promise<void> => {
             let isPastWindow = isPastDate;
             if (isToday) {
               let startTimeStr = "09:00"; // default fallback
-              if (emp.shiftId) {
-                const [sh] = await db.select().from(shiftsTable).where(eq(shiftsTable.id, emp.shiftId));
+              const [sched] = await db
+                .select()
+                .from(shiftScheduleTable)
+                .where(and(eq(shiftScheduleTable.employeeId, emp.id), eq(shiftScheduleTable.date, String(date))));
+              const targetShiftId = sched ? sched.shiftId : emp.shiftId;
+              if (targetShiftId) {
+                const [sh] = await db.select().from(shiftsTable).where(eq(shiftsTable.id, targetShiftId));
                 if (sh?.startTime) {
                   startTimeStr = sh.startTime;
                 }

@@ -163,6 +163,27 @@ export interface ShiftUpdate {
   gracePeriodMinutes?: number;
 }
 
+export interface ShiftSchedule {
+  id: number;
+  employeeId: number;
+  date: string;
+  shiftId: number;
+  /** @nullable */
+  shiftName?: string | null;
+  /** @nullable */
+  startTime?: string | null;
+  /** @nullable */
+  endTime?: string | null;
+  createdAt?: string;
+}
+
+export interface ShiftScheduleInput {
+  employeeId: number;
+  shiftId: number;
+  date?: string;
+  dates?: string[];
+}
+
 export type WeeklyOffPolicyPolicyType = typeof WeeklyOffPolicyPolicyType[keyof typeof WeeklyOffPolicyPolicyType];
 
 
@@ -784,6 +805,12 @@ export interface LeaveReportRow {
   pendingLeaves?: number;
   approvedLeaves?: number;
 }
+
+export type GetShiftSchedulesParams = {
+employeeId?: number;
+startDate?: string;
+endDate?: string;
+};
 
 export type GetEmployeesParams = {
 /**
