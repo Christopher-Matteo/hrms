@@ -529,14 +529,12 @@ router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, 
     return;
   }
 
-  // 2. Generate next 7 dates starting from today in IST (en-CA YYYY-MM-DD format)
+  // 2. Generate next 1 date (tomorrow) in IST (en-CA YYYY-MM-DD format)
   const targetDates: string[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    const dateStr = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-    targetDates.push(dateStr);
-  }
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const dateStr = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  targetDates.push(dateStr);
 
   // 3. Fetch custom shift schedules for these dates
   const customSchedules = await db
