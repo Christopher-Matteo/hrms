@@ -290,7 +290,6 @@ async function seed() {
   if (existingHolidays.length === 0) {
     const year = new Date().getFullYear();
     await db.insert(holidaysTable).values([
-      { name: "New Year's Day", date: `${year}-01-01` },
       { name: "Republic Day", date: `${year}-01-26` },
       { name: "Holi", date: `${year}-03-14` },
       { name: "Good Friday", date: `${year}-04-18` },
