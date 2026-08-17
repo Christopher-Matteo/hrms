@@ -39,5 +39,6 @@ export interface PayrollRecord {
   totalDeductions?: number;
   netSalary: number;
   status: PayrollRecordStatus;
+  manualAttendanceCount: number;
   createdAt?: string;
 }

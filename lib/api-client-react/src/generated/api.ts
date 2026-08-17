@@ -62,6 +62,7 @@ import type {
   GetLeaveRequestsParams,
   GetPayrollRecordsParams,
   GetPayrollReportParams,
+  GetShiftSchedulesParams,
   HealthStatus,
   Holiday,
   HolidayInput,
@@ -80,6 +81,8 @@ import type {
   SettingsUpdate,
   Shift,
   ShiftInput,
+  ShiftSchedule,
+  ShiftScheduleInput,
   ShiftUpdate,
   User,
   WeeklyOffPolicy,
@@ -1963,6 +1966,160 @@ export const useDeleteShift = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteShiftMutationOptions(options));
+    }
+
+export const getGetShiftSchedulesUrl = (params?: GetShiftSchedulesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/shifts/schedules?${stringifiedParams}` : `/api/shifts/schedules`
+}
+
+/**
+ * @summary List shift schedules
+ */
+export const getShiftSchedules = async (params?: GetShiftSchedulesParams, options?: RequestInit): Promise<ShiftSchedule[]> => {
+
+  return customFetch<ShiftSchedule[]>(getGetShiftSchedulesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetShiftSchedulesQueryKey = (params?: GetShiftSchedulesParams,) => {
+    return [
+    `/api/shifts/schedules`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetShiftSchedulesQueryOptions = <TData = Awaited<ReturnType<typeof getShiftSchedules>>, TError = ErrorType<unknown>>(params?: GetShiftSchedulesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getShiftSchedules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetShiftSchedulesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getShiftSchedules>>> = ({ signal }) => getShiftSchedules(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getShiftSchedules>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetShiftSchedulesQueryResult = NonNullable<Awaited<ReturnType<typeof getShiftSchedules>>>
+export type GetShiftSchedulesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List shift schedules
+ */
+
+export function useGetShiftSchedules<TData = Awaited<ReturnType<typeof getShiftSchedules>>, TError = ErrorType<unknown>>(
+ params?: GetShiftSchedulesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getShiftSchedules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetShiftSchedulesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAssignShiftScheduleUrl = () => {
+
+
+
+
+  return `/api/shifts/schedules`
+}
+
+/**
+ * @summary Assign shift schedule to an employee
+ */
+export const assignShiftSchedule = async (shiftScheduleInput: ShiftScheduleInput, options?: RequestInit): Promise<ShiftSchedule[]> => {
+
+  return customFetch<ShiftSchedule[]>(getAssignShiftScheduleUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(shiftScheduleInput)
+  }
+);}
+
+
+
+
+export const getAssignShiftScheduleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignShiftSchedule>>, TError,{data: BodyType<ShiftScheduleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof assignShiftSchedule>>, TError,{data: BodyType<ShiftScheduleInput>}, TContext> => {
+
+const mutationKey = ['assignShiftSchedule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof assignShiftSchedule>>, {data: BodyType<ShiftScheduleInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  assignShiftSchedule(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AssignShiftScheduleMutationResult = NonNullable<Awaited<ReturnType<typeof assignShiftSchedule>>>
+    export type AssignShiftScheduleMutationBody = BodyType<ShiftScheduleInput>
+    export type AssignShiftScheduleMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Assign shift schedule to an employee
+ */
+export const useAssignShiftSchedule = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignShiftSchedule>>, TError,{data: BodyType<ShiftScheduleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof assignShiftSchedule>>,
+        TError,
+        {data: BodyType<ShiftScheduleInput>},
+        TContext
+      > => {
+      return useMutation(getAssignShiftScheduleMutationOptions(options));
     }
 
 export const getGetWeeklyOffPoliciesUrl = () => {

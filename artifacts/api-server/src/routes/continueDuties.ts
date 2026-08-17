@@ -26,7 +26,7 @@ router.get("/continue-duties", async (req, res): Promise<void> => {
 
   const conditions = [];
   if (employeeId) conditions.push(eq(continueDutiesTable.employeeId, Number(employeeId)));
-  if (month) conditions.push(sql`${continueDutiesTable.date} like ${String(month) + "%"}`);
+  if (month) conditions.push(sql`${continueDutiesTable.date}::text like ${String(month) + "%"}`);
 
   let query = db.select().from(continueDutiesTable).$dynamic();
   if (conditions.length > 0) query = query.where(and(...conditions));

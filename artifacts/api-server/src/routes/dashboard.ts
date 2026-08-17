@@ -1,24 +1,109 @@
 import { Router, type IRouter } from "express";
-import { db, employeesTable, attendanceTable, payrollTable, branchesTable, auditLogsTable } from "@workspace/db";
+import { db, employeesTable, attendanceTable, payrollTable, branchesTable, auditLogsTable, holidaysTable, weeklyOffPoliciesTable, shiftsTable } from "@workspace/db";
 import { eq, and, sql, gte } from "drizzle-orm";
+import { isEmployeeWeeklyOff } from "../lib/weeklyOffHelper";
 
 const router: IRouter = Router();
 
-router.get("/dashboard/stats", async (req, res): Promise<void> => {
-  const today = new Date().toISOString().split("T")[0];
-  const currentMonth = today.slice(0, 7);
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+function parseTimeToMinutes(timeStr: string | null | undefined): number {
+  if (!timeStr) return 0;
+  const clean = timeStr.trim().toUpperCase();
+  const isPM = clean.endsWith("PM");
+  const isAM = clean.endsWith("AM");
+  let timePart = clean.replace(/(AM|PM)/g, "").trim();
+  if (!timePart.includes(":")) {
+    timePart = `${timePart}:00`;
+  }
+  const parts = timePart.split(":");
+  let hours = parseInt(parts[0], 10) || 0;
+  const minutes = parseInt(parts[1], 10) || 0;
+  if (isPM && hours < 12) {
+    hours += 12;
+  } else if (isAM && hours === 12) {
+    hours = 0;
+  }
+  return hours * 60 + minutes;
+}
 
-  const [totalEmp] = await db.select({ count: sql<number>`count(*)` }).from(employeesTable).where(eq(employeesTable.status, "active"));
+function isLateByMoreThanTwoHours(shiftStartStr: string, checkInStr: string): boolean {
+  const shiftMinutes = parseTimeToMinutes(shiftStartStr);
+  const checkInMinutes = parseTimeToMinutes(checkInStr);
+  let diff = checkInMinutes - shiftMinutes;
+  if (diff < -720) {
+    diff += 1440;
+  }
+  return diff > 120;
+}
+
+
+
+router.get("/dashboard/stats", async (req, res): Promise<void> => {
+  const todayDate = new Date();
+  const today = todayDate.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const currentMonth = today.slice(0, 7);
+  const thirtyDaysAgoDate = new Date(todayDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = thirtyDaysAgoDate.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
+  const activeEmployees = await db.select().from(employeesTable).where(eq(employeesTable.status, "active"));
   const [totalBranches] = await db.select({ count: sql<number>`count(*)` }).from(branchesTable);
 
   const todayAttendance = await db.select().from(attendanceTable).where(eq(attendanceTable.date, today));
-  const presentToday = todayAttendance.filter(a => ["present", "late", "overtime"].includes(a.status)).length;
-  const absentToday = todayAttendance.filter(a => a.status === "absent").length;
-  const weeklyOffToday = todayAttendance.filter(a => a.status === "weekly_off").length;
-  const leaveToday = todayAttendance.filter(a => ["paid_leave", "sick_leave"].includes(a.status)).length;
-  const lateArrivals = todayAttendance.filter(a => a.status === "late").length;
-  const overtimeEmployees = todayAttendance.filter(a => a.status === "overtime").length;
+  const holidays = await db.select().from(holidaysTable);
+  const policies = await db.select().from(weeklyOffPoliciesTable);
+  const shifts = await db.select().from(shiftsTable);
+
+  let presentToday = 0;
+  let absentToday = 0;
+  let weeklyOffToday = 0;
+  let leaveToday = 0;
+  let lateArrivals = 0;
+  let overtimeEmployees = 0;
+
+  const [year, m, d] = today.split("-").map(Number);
+  const todayObj = new Date(year, m - 1, d);
+  const todayDayName = todayObj.toLocaleDateString("en-US", { weekday: "long" });
+
+  for (const emp of activeEmployees) {
+    const att = todayAttendance.find(a => a.employeeId === emp.id);
+    let status = "absent";
+
+    if (att) {
+      status = att.status;
+    } else {
+      const isHoliday = holidays.some(h => h.date === today && (!h.branchId || h.branchId === emp.branchId));
+      if (isHoliday) {
+        status = "public_holiday";
+      } else {
+        if (isEmployeeWeeklyOff(today, emp, policies)) {
+          status = "weekly_off";
+        } else {
+          let isPastWindow = true;
+          let startTimeStr = "09:00";
+          if (emp.shiftId) {
+            const sh = shifts.find(s => s.id === emp.shiftId);
+            if (sh?.startTime) {
+              startTimeStr = sh.startTime;
+            }
+          }
+          const currentISTTimeStr = new Date().toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", hour12: true });
+          isPastWindow = isLateByMoreThanTwoHours(startTimeStr, currentISTTimeStr);
+
+          if (isPastWindow) {
+            status = "absent";
+          } else {
+            status = "pending";
+          }
+        }
+      }
+    }
+
+    if (["present", "late", "overtime"].includes(status)) presentToday++;
+    if (status === "absent") absentToday++;
+    if (status === "weekly_off") weeklyOffToday++;
+    if (["paid_leave", "sick_leave", "half_day"].includes(status)) leaveToday++;
+    if (status === "late") lateArrivals++;
+    if (status === "overtime") overtimeEmployees++;
+  }
 
   const [monthPayroll] = await db
     .select({ total: sql<number>`coalesce(sum(net_salary), 0)` })
@@ -38,7 +123,7 @@ router.get("/dashboard/stats", async (req, res): Promise<void> => {
     .where(eq(employeesTable.status, "active"));
 
   res.json({
-    totalEmployees: Number(totalEmp?.count ?? 0),
+    totalEmployees: activeEmployees.length,
     presentToday,
     absentToday,
     weeklyOffToday,
@@ -53,17 +138,79 @@ router.get("/dashboard/stats", async (req, res): Promise<void> => {
 });
 
 router.get("/dashboard/attendance-trend", async (req, res): Promise<void> => {
-  // Last 14 days trend
+  const activeEmployees = await db.select().from(employeesTable).where(eq(employeesTable.status, "active"));
+  const holidays = await db.select().from(holidaysTable);
+  const policies = await db.select().from(weeklyOffPoliciesTable);
+  const shifts = await db.select().from(shiftsTable);
+
   const result = [];
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
   for (let i = 13; i >= 0; i--) {
-    const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+    const date = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
     const records = await db.select().from(attendanceTable).where(eq(attendanceTable.date, date));
+
+    const [year, m, day] = date.split("-").map(Number);
+    const dateObj = new Date(year, m - 1, day);
+    const dayName = dateObj.toLocaleDateString("en-US", { weekday: "long" });
+
+    let present = 0;
+    let absent = 0;
+    let leave = 0;
+    let weeklyOff = 0;
+
+    for (const emp of activeEmployees) {
+      const att = records.find(r => r.employeeId === emp.id);
+      let status = "absent";
+
+      if (att) {
+        status = att.status;
+      } else {
+        const isHoliday = holidays.some(h => h.date === date && (!h.branchId || h.branchId === emp.branchId));
+        if (isHoliday) {
+          status = "public_holiday";
+        } else {
+          if (isEmployeeWeeklyOff(date, emp, policies)) {
+            status = "weekly_off";
+          } else {
+            const isPastDate = date < todayStr;
+            const isToday = date === todayStr;
+            let isPastWindow = isPastDate;
+
+            if (isToday) {
+              let startTimeStr = "09:00";
+              if (emp.shiftId) {
+                const sh = shifts.find(s => s.id === emp.shiftId);
+                if (sh?.startTime) {
+                  startTimeStr = sh.startTime;
+                }
+              }
+              const currentISTTimeStr = new Date().toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", hour12: true });
+              isPastWindow = isLateByMoreThanTwoHours(startTimeStr, currentISTTimeStr);
+            }
+
+            if (isPastWindow) {
+              status = "absent";
+            } else {
+              status = "pending";
+            }
+          }
+        }
+      }
+
+      if (["present", "late", "overtime"].includes(status)) present++;
+      if (status === "absent") absent++;
+      if (["paid_leave", "sick_leave", "half_day"].includes(status)) leave++;
+      if (status === "weekly_off") weeklyOff++;
+    }
+
     result.push({
       date,
-      present: records.filter(r => ["present", "late", "overtime"].includes(r.status)).length,
-      absent: records.filter(r => r.status === "absent").length,
-      leave: records.filter(r => ["paid_leave", "sick_leave", "half_day"].includes(r.status)).length,
-      weeklyOff: records.filter(r => r.status === "weekly_off").length,
+      present,
+      absent,
+      leave,
+      weeklyOff,
     });
   }
   res.json(result);
@@ -74,7 +221,7 @@ router.get("/dashboard/payroll-trend", async (req, res): Promise<void> => {
   for (let i = 5; i >= 0; i--) {
     const d = new Date();
     d.setMonth(d.getMonth() - i);
-    const month = d.toISOString().slice(0, 7);
+    const month = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }).slice(0, 7);
 
     const [total] = await db
       .select({ total: sql<number>`coalesce(sum(net_salary), 0)`, count: sql<number>`count(*)` })
@@ -117,33 +264,7 @@ router.get("/dashboard/recent-activities", async (req, res): Promise<void> => {
 });
 
 router.get("/dashboard/upcoming-birthdays", async (req, res): Promise<void> => {
-  const today = new Date();
-  const employees = await db
-    .select()
-    .from(employeesTable)
-    .where(and(eq(employeesTable.status, "active"), sql`${employeesTable.dob} is not null`));
-
-  const withBirthdays = employees
-    .filter(e => e.dob)
-    .map(e => {
-      const dob = new Date(e.dob!);
-      const nextBirthday = new Date(today.getFullYear(), dob.getMonth(), dob.getDate());
-      if (nextBirthday < today) nextBirthday.setFullYear(today.getFullYear() + 1);
-      const daysUntil = Math.ceil((nextBirthday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      return {
-        id: e.id,
-        name: `${e.firstName} ${e.lastName}`,
-        dob: e.dob,
-        department: e.department,
-        photoUrl: e.photoUrl,
-        daysUntil,
-      };
-    })
-    .filter(e => e.daysUntil <= 30)
-    .sort((a, b) => a.daysUntil - b.daysUntil)
-    .slice(0, 10);
-
-  res.json(withBirthdays);
+  res.json([]);
 });
 
 export default router;

@@ -25,6 +25,7 @@ export const payrollTable = pgTable("payroll", {
   grossSalary: numeric("gross_salary", { precision: 12, scale: 2 }).notNull().default("0"),
   totalDeductions: numeric("total_deductions", { precision: 12, scale: 2 }).notNull().default("0"),
   netSalary: numeric("net_salary", { precision: 12, scale: 2 }).notNull().default("0"),
+  manualAttendanceCount: integer("manual_attendance_count").notNull().default(0),
   status: text("status").notNull().default("draft"), // draft, approved, paid
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

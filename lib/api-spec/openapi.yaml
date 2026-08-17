@@ -440,6 +440,56 @@ paths:
         "204":
           description: No Content
 
+  /shifts/schedules:
+    get:
+      operationId: getShiftSchedules
+      tags: [shifts]
+      summary: List shift schedules
+      parameters:
+        - name: employeeId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ShiftSchedule"
+    post:
+      operationId: assignShiftSchedule
+      tags: [shifts]
+      summary: Assign shift schedule to an employee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShiftScheduleInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ShiftSchedule"
+
   # WEEKLY OFF POLICIES
   /weekly-off-policies:
     get:
@@ -1639,13 +1689,11 @@ components:
 
     BirthdayEmployee:
       type: object
-      required: [id, name, dob, department]
+      required: [id, name, department]
       properties:
         id:
           type: integer
         name:
-          type: string
-        dob:
           type: string
         department:
           type: string
@@ -1776,6 +1824,42 @@ components:
         gracePeriodMinutes:
           type: integer
 
+    ShiftSchedule:
+      type: object
+      required: [id, employeeId, date, shiftId]
+      properties:
+        id:
+          type: integer
+        employeeId:
+          type: integer
+        date:
+          type: string
+        shiftId:
+          type: integer
+        shiftName:
+          type: ["string", "null"]
+        startTime:
+          type: ["string", "null"]
+        endTime:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    ShiftScheduleInput:
+      type: object
+      required: [employeeId, shiftId]
+      properties:
+        employeeId:
+          type: integer
+        shiftId:
+          type: integer
+        date:
+          type: string
+        dates:
+          type: array
+          items:
+            type: string
+
     WeeklyOffPolicy:
       type: object
       required: [id, name, policyType]
@@ -1833,8 +1917,6 @@ components:
         gender:
           type: string
           enum: [male, female, other]
-        dob:
-          type: ["string", "null"]
         address:
           type: ["string", "null"]
         emergencyContact:
@@ -1884,8 +1966,10 @@ components:
 
     EmployeeInput:
       type: object
-      required: [firstName, lastName, email, phone, gender, department, designation, branchId, joiningDate, employmentType, salary]
+      required: [firstName, phone, department, branchId, salary]
       properties:
+        employeeId:
+          type: string
         firstName:
           type: string
         lastName:
@@ -1896,8 +1980,6 @@ components:
           type: string
         gender:
           type: string
-        dob:
-          type: ["string", "null"]
         address:
           type: ["string", "null"]
         emergencyContact:
@@ -1918,6 +2000,8 @@ components:
           type: string
         salary:
           type: number
+        password:
+          type: string
         bankName:
           type: ["string", "null"]
         accountNumber:
@@ -1946,8 +2030,6 @@ components:
           type: string
         gender:
           type: string
-        dob:
-          type: ["string", "null"]
         address:
           type: ["string", "null"]
         emergencyContact:
@@ -2231,7 +2313,7 @@ components:
 
     PayrollRecord:
       type: object
-      required: [id, employeeId, month, basicSalary, netSalary, status]
+      required: [id, employeeId, month, basicSalary, netSalary, status, manualAttendanceCount]
       properties:
         id:
           type: integer
@@ -2288,6 +2370,8 @@ components:
         status:
           type: string
           enum: [draft, approved, paid]
+        manualAttendanceCount:
+          type: integer
         createdAt:
           type: string
 

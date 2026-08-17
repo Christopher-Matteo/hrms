@@ -18,8 +18,6 @@ export interface Employee {
   phone: string;
   gender: EmployeeGender;
   /** @nullable */
-  dob?: string | null;
-  /** @nullable */
   address?: string | null;
   /** @nullable */
   emergencyContact?: string | null;

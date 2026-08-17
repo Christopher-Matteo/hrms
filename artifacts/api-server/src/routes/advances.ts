@@ -46,7 +46,7 @@ router.post("/advances", async (req, res): Promise<void> => {
     return;
   }
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   const [advance] = await db
     .insert(advancesTable)
     .values({

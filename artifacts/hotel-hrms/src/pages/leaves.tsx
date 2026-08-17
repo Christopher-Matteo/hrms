@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Check, X, Calendar } from "lucide-react";
+import { Plus, Check, X, Calendar, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 
@@ -37,6 +37,46 @@ export default function LeavesPage() {
     });
   }
 
+  function exportCSV() {
+    if (!leaves?.length) return;
+    const headers = [
+      "Employee Name",
+      "Employee Code",
+      "Leave Type",
+      "Start Date",
+      "End Date",
+      "Days",
+      "Reason",
+      "Status"
+    ];
+    
+    const rows = leaves.map(l => [
+      l.employeeName ?? "",
+      l.employeeCode ?? "",
+      l.leaveType,
+      l.startDate,
+      l.endDate,
+      l.days,
+      l.reason,
+      l.status
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(val => `"${String(val ?? '').replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `leaves_export_${new Date().toISOString().split("T")[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   const canManage = ["super_admin", "hr_manager", "branch_manager"].includes(user?.role ?? "");
   const set = (f: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(prev => ({ ...prev, [f]: e.target.value }));
 
@@ -47,7 +87,11 @@ export default function LeavesPage() {
           <h1 className="text-xl font-bold">Leave Requests</h1>
           <p className="text-sm text-muted-foreground">{leaves?.length ?? 0} requests</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="gap-2" onClick={exportCSV} disabled={!leaves?.length}>
+            <Download className="w-4 h-4" />Export CSV
+          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-2"><Plus className="w-4 h-4" />New Request</Button>
           </DialogTrigger>
@@ -80,6 +124,7 @@ export default function LeavesPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="flex gap-3">

@@ -129,7 +129,6 @@ export const GetRecentActivitiesResponse = zod.array(GetRecentActivitiesResponse
 export const GetUpcomingBirthdaysResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
-  "dob": zod.string(),
   "department": zod.string(),
   "photoUrl": zod.string().nullish(),
   "daysUntil": zod.number().optional()
@@ -397,6 +396,51 @@ export const DeleteShiftResponse = zod.void()
 
 
 /**
+ * @summary List shift schedules
+ */
+export const GetShiftSchedulesQueryParams = zod.object({
+  "employeeId": zod.coerce.number().optional(),
+  "startDate": zod.coerce.string().optional(),
+  "endDate": zod.coerce.string().optional()
+})
+
+export const GetShiftSchedulesResponseItem = zod.object({
+  "id": zod.number(),
+  "employeeId": zod.number(),
+  "date": zod.string(),
+  "shiftId": zod.number(),
+  "shiftName": zod.string().nullish(),
+  "startTime": zod.string().nullish(),
+  "endTime": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+})
+export const GetShiftSchedulesResponse = zod.array(GetShiftSchedulesResponseItem)
+
+
+/**
+ * @summary Assign shift schedule to an employee
+ */
+export const AssignShiftScheduleBody = zod.object({
+  "employeeId": zod.number(),
+  "shiftId": zod.number(),
+  "date": zod.string().optional(),
+  "dates": zod.array(zod.string()).optional()
+})
+
+export const AssignShiftScheduleResponseItem = zod.object({
+  "id": zod.number(),
+  "employeeId": zod.number(),
+  "date": zod.string(),
+  "shiftId": zod.number(),
+  "shiftName": zod.string().nullish(),
+  "startTime": zod.string().nullish(),
+  "endTime": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+})
+export const AssignShiftScheduleResponse = zod.array(AssignShiftScheduleResponseItem)
+
+
+/**
  * @summary List all weekly off policies
  */
 export const GetWeeklyOffPoliciesResponseItem = zod.object({
@@ -493,7 +537,6 @@ export const GetEmployeesResponseItem = zod.object({
   "email": zod.string(),
   "phone": zod.string(),
   "gender": zod.enum(['male', 'female', 'other']),
-  "dob": zod.string().nullish(),
   "address": zod.string().nullish(),
   "emergencyContact": zod.string().nullish(),
   "department": zod.string(),
@@ -524,22 +567,23 @@ export const GetEmployeesResponse = zod.array(GetEmployeesResponseItem)
  * @summary Create an employee
  */
 export const CreateEmployeeBody = zod.object({
+  "employeeId": zod.string().optional(),
   "firstName": zod.string(),
-  "lastName": zod.string(),
-  "email": zod.string(),
+  "lastName": zod.string().optional(),
+  "email": zod.string().optional(),
   "phone": zod.string(),
-  "gender": zod.string(),
-  "dob": zod.string().nullish(),
+  "gender": zod.string().optional(),
   "address": zod.string().nullish(),
   "emergencyContact": zod.string().nullish(),
   "department": zod.string(),
-  "designation": zod.string(),
+  "designation": zod.string().optional(),
   "branchId": zod.number(),
   "shiftId": zod.number().nullish(),
   "weeklyOffPolicyId": zod.number().nullish(),
-  "joiningDate": zod.string(),
-  "employmentType": zod.string(),
+  "joiningDate": zod.string().optional(),
+  "employmentType": zod.string().optional(),
   "salary": zod.number(),
+  "password": zod.string().optional(),
   "bankName": zod.string().nullish(),
   "accountNumber": zod.string().nullish(),
   "ifscCode": zod.string().nullish(),
@@ -557,7 +601,6 @@ export const CreateEmployeeResponse = zod.object({
   "email": zod.string(),
   "phone": zod.string(),
   "gender": zod.enum(['male', 'female', 'other']),
-  "dob": zod.string().nullish(),
   "address": zod.string().nullish(),
   "emergencyContact": zod.string().nullish(),
   "department": zod.string(),
@@ -598,7 +641,6 @@ export const GetEmployeeResponse = zod.object({
   "email": zod.string(),
   "phone": zod.string(),
   "gender": zod.enum(['male', 'female', 'other']),
-  "dob": zod.string().nullish(),
   "address": zod.string().nullish(),
   "emergencyContact": zod.string().nullish(),
   "department": zod.string(),
@@ -637,7 +679,6 @@ export const UpdateEmployeeBody = zod.object({
   "email": zod.string().optional(),
   "phone": zod.string().optional(),
   "gender": zod.string().optional(),
-  "dob": zod.string().nullish(),
   "address": zod.string().nullish(),
   "emergencyContact": zod.string().nullish(),
   "department": zod.string().optional(),
@@ -666,7 +707,6 @@ export const UpdateEmployeeResponse = zod.object({
   "email": zod.string(),
   "phone": zod.string(),
   "gender": zod.enum(['male', 'female', 'other']),
-  "dob": zod.string().nullish(),
   "address": zod.string().nullish(),
   "emergencyContact": zod.string().nullish(),
   "department": zod.string(),
@@ -1218,6 +1258,7 @@ export const GetPayrollRecordsResponseItem = zod.object({
   "totalDeductions": zod.number().optional(),
   "netSalary": zod.number(),
   "status": zod.enum(['draft', 'approved', 'paid']),
+  "manualAttendanceCount": zod.number(),
   "createdAt": zod.string().optional()
 })
 export const GetPayrollRecordsResponse = zod.array(GetPayrollRecordsResponseItem)
@@ -1260,6 +1301,7 @@ export const GeneratePayrollResponseItem = zod.object({
   "totalDeductions": zod.number().optional(),
   "netSalary": zod.number(),
   "status": zod.enum(['draft', 'approved', 'paid']),
+  "manualAttendanceCount": zod.number(),
   "createdAt": zod.string().optional()
 })
 export const GeneratePayrollResponse = zod.array(GeneratePayrollResponseItem)
@@ -1300,6 +1342,7 @@ export const GetPayrollRecordResponse = zod.object({
   "totalDeductions": zod.number().optional(),
   "netSalary": zod.number(),
   "status": zod.enum(['draft', 'approved', 'paid']),
+  "manualAttendanceCount": zod.number(),
   "createdAt": zod.string().optional()
 })
 
@@ -1346,6 +1389,7 @@ export const UpdatePayrollRecordResponse = zod.object({
   "totalDeductions": zod.number().optional(),
   "netSalary": zod.number(),
   "status": zod.enum(['draft', 'approved', 'paid']),
+  "manualAttendanceCount": zod.number(),
   "createdAt": zod.string().optional()
 })
 
@@ -1385,6 +1429,7 @@ export const ApprovePayrollResponse = zod.object({
   "totalDeductions": zod.number().optional(),
   "netSalary": zod.number(),
   "status": zod.enum(['draft', 'approved', 'paid']),
+  "manualAttendanceCount": zod.number(),
   "createdAt": zod.string().optional()
 })
 

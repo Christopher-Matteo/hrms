@@ -1,0 +1,7 @@
+{
+  "outputDirectory": "dist/public",
+  "cleanUrls": false,
+  "rewrites": [
+    { "source": "/((?!api|assets|models|static|favicon.svg|opengraph.jpg|robots.txt).*)", "destination": "/index.html" }
+  ]
+}

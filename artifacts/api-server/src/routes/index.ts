@@ -19,10 +19,14 @@ import auditLogsRouter from "./auditLogs";
 import dashboardRouter from "./dashboard";
 import reportsRouter from "./reports";
 import kioskRouter from "./kiosk";
+import employeePortalRouter from "./employeePortal";
+import financeRouter from "./finance";
 
 const router: IRouter = Router();
 
 router.use(kioskRouter);
+router.use(employeePortalRouter);
+router.use(financeRouter);
 router.use(healthRouter);
 router.use(authRouter);
 router.use(branchesRouter);

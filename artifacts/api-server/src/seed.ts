@@ -1,4 +1,5 @@
-import { db, usersTable, branchesTable, departmentsTable, shiftsTable, weeklyOffPoliciesTable, employeesTable, attendanceTable, leavesTable, advancesTable, announcementsTable, notificationsTable, holidaysTable, settingsTable, auditLogsTable } from "@workspace/db";
+import { db, usersTable, branchesTable, departmentsTable, shiftsTable, weeklyOffPoliciesTable, employeesTable, attendanceTable, leavesTable, advancesTable, announcementsTable, notificationsTable, holidaysTable, settingsTable, auditLogsTable, payrollTable, documentsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import * as crypto from "crypto";
 
 function hashPassword(password: string): string {
@@ -7,6 +8,21 @@ function hashPassword(password: string): string {
 
 async function seed() {
   console.log("Seeding database...");
+
+  // Truncate tables to ensure a clean seed matching the geofence branch requirements
+  console.log("Clearing existing tables...");
+  await db.delete(attendanceTable);
+  await db.delete(leavesTable);
+  await db.delete(advancesTable);
+  await db.delete(documentsTable);
+  await db.delete(payrollTable);
+  await db.delete(employeesTable);
+  await db.delete(usersTable);
+  await db.delete(branchesTable);
+  await db.delete(departmentsTable);
+  await db.delete(shiftsTable);
+  await db.delete(weeklyOffPoliciesTable);
+  await db.delete(auditLogsTable);
 
   // Settings
   const existingSettings = await db.select().from(settingsTable).limit(1);
@@ -25,146 +41,198 @@ async function seed() {
   }
 
   // Branches
-  const existingBranches = await db.select().from(branchesTable).limit(1);
-  if (existingBranches.length === 0) {
-    await db.insert(branchesTable).values([
-      { name: "Mumbai Central", address: "123 Marine Drive, Mumbai", phone: "+91 22 1234 5678", email: "mumbai@redfoxhotel.com" },
-      { name: "Delhi Airport", address: "Terminal 2, IGI Airport, Delhi", phone: "+91 11 9876 5432", email: "delhi@redfoxhotel.com" },
-      { name: "Bangalore City", address: "MG Road, Bangalore", phone: "+91 80 2345 6789", email: "bangalore@redfoxhotel.com" },
-    ]);
-  }
+  console.log("Seeding new branches...");
+  const insertedBranches = await db.insert(branchesTable).values([
+    { name: "Nungambakkam", address: "K R S Hospitals, Avenue Road, Zone 9 Teynampet, Chennai - 600034, Tamil Nadu, India", phone: "+91 44 1111 2222", email: "nungambakkam@redfoxhotel.com", latitude: "13.0624", longitude: "80.2443", radius: "200.00" },
+    { name: "Redfox T Nagar", address: "T Nagar, Chennai", phone: "+91 44 5555 6666", email: "redfox.tnagar@redfoxhotel.com", latitude: "13.053921", longitude: "80.233352", radius: "200.00" },
+    { name: "Redstone T Nagar", address: "Mamabalam Highway, Zone 9 Teynampet, Chennai - 600024, Tamil Nadu, India", phone: "+91 44 5555 7777", email: "redstone.tnagar@redfoxhotel.com", latitude: "13.053490", longitude: "80.234060", radius: "200.00" },
+    { name: "Ambattur", address: "Industrial Estate, Ambattur, Chennai", phone: "+91 44 2222 3333", email: "ambattur@redfoxhotel.com", latitude: "13.133469", longitude: "80.162256", radius: "200.00" },
+    { name: "Porur", address: "Mount Poonamallee Road, Porur, Chennai", phone: "+91 44 3333 4444", email: "porur@redfoxhotel.com", latitude: "13.015508", longitude: "80.159126", radius: "200.00" },
+    { name: "ECR Redfox Signature", address: "East Coast Road, Chennai", phone: "+91 44 4444 5555", email: "ecr@redfoxhotel.com", latitude: "12.9234", longitude: "80.2435", radius: "200.00" },
+  ]).returning();
 
   // Departments
-  const existingDepts = await db.select().from(departmentsTable).limit(1);
-  if (existingDepts.length === 0) {
-    await db.insert(departmentsTable).values([
-      { name: "Front Office" },
-      { name: "Housekeeping" },
-      { name: "Food & Beverage" },
-      { name: "Kitchen" },
-      { name: "Security" },
-      { name: "Maintenance" },
-      { name: "HR" },
-      { name: "Finance" },
-      { name: "IT" },
-      { name: "Sales & Marketing" },
-    ]);
-  }
+  await db.insert(departmentsTable).values([
+    { name: "Front Office" },
+    { name: "Housekeeping" },
+    { name: "Food & Beverage" },
+    { name: "Kitchen" },
+    { name: "Security" },
+    { name: "Maintenance" },
+    { name: "HR" },
+    { name: "Finance" },
+    { name: "IT" },
+    { name: "Sales & Marketing" },
+    { name: "Digital Marketing" },
+  ]);
 
   // Shifts
-  const existingShifts = await db.select().from(shiftsTable).limit(1);
-  if (existingShifts.length === 0) {
-    await db.insert(shiftsTable).values([
-      { name: "Morning Shift", startTime: "06:00", endTime: "14:00", gracePeriodMinutes: 10 },
-      { name: "Evening Shift", startTime: "14:00", endTime: "22:00", gracePeriodMinutes: 10 },
-      { name: "Night Shift", startTime: "22:00", endTime: "06:00", gracePeriodMinutes: 15 },
-      { name: "General Shift", startTime: "09:00", endTime: "18:00", gracePeriodMinutes: 15 },
-    ]);
-  }
+  const insertedShifts = await db.insert(shiftsTable).values([
+    { name: "9:00 AM to 9:00 PM", startTime: "09:00", endTime: "21:00", gracePeriodMinutes: 15 },
+    { name: "10:00 AM to 6:00 PM", startTime: "10:00", endTime: "18:00", gracePeriodMinutes: 15 },
+    { name: "9:00 AM to 7:00 PM", startTime: "09:00", endTime: "19:00", gracePeriodMinutes: 15 },
+    { name: "7:00 PM to 7:00 AM", startTime: "19:00", endTime: "07:00", gracePeriodMinutes: 15 },
+    { name: "9:00 PM to 9:00 AM", startTime: "21:00", endTime: "09:00", gracePeriodMinutes: 15 },
+    { name: "8:00 PM to 8:00 AM", startTime: "20:00", endTime: "08:00", gracePeriodMinutes: 15 },
+    { name: "10:00 AM to 10:00 PM", startTime: "10:00", endTime: "22:00", gracePeriodMinutes: 15 },
+    { name: "12:00 AM to 12:00 PM", startTime: "00:00", endTime: "12:00", gracePeriodMinutes: 15 },
+    { name: "Full Duty", startTime: "09:00", endTime: "09:00", gracePeriodMinutes: 15 },
+    { name: "11:00 AM to 9:00 PM", startTime: "11:00", endTime: "21:00", gracePeriodMinutes: 15 },
+    { name: "7:00 AM to 7:00 PM", startTime: "07:00", endTime: "19:00", gracePeriodMinutes: 15 },
+  ]).returning();
 
   // Weekly Off Policies
-  const existingPolicies = await db.select().from(weeklyOffPoliciesTable).limit(1);
-  if (existingPolicies.length === 0) {
-    await db.insert(weeklyOffPoliciesTable).values([
-      { name: "Sunday Off", policyType: "one_day_per_week", offDays: '["Sunday"]' },
-      { name: "Saturday & Sunday Off", policyType: "two_days_per_week", offDays: '["Saturday","Sunday"]' },
-      { name: "Rotational Off", policyType: "rotational", offDays: null },
-    ]);
-  }
+  const insertedPolicies = await db.insert(weeklyOffPoliciesTable).values([
+    { name: "Sunday Off", policyType: "one_day_per_week", offDays: '["Sunday"]' },
+    { name: "Saturday & Sunday Off", policyType: "two_days_per_week", offDays: '["Saturday","Sunday"]' },
+    { name: "Rotational Off", policyType: "rotational", offDays: null },
+    { name: "Housekeeping Monthly Off (1 Sunday/Month)", policyType: "one_week_per_month", offDays: '["Sunday"]' },
+    { name: "Standard 4-Week Off (4 Sundays/Month)", policyType: "four_weeks_per_month", offDays: '["Sunday"]' },
+  ]).returning();
 
   // Super Admin User
-  const existingAdmin = await db.select().from(usersTable).limit(1);
-  if (existingAdmin.length === 0) {
+  await db.insert(usersTable).values({
+    email: "admin@redfoxhotel.com",
+    passwordHash: hashPassword("admin123"),
+    name: "Super Admin",
+    role: "super_admin",
+  });
+
+  // Employees
+  const nungambakkam = insertedBranches.find(b => b.name === "Nungambakkam")!;
+  const redfoxTnagar = insertedBranches.find(b => b.name === "Redfox T Nagar")!;
+  const redstoneTnagar = insertedBranches.find(b => b.name === "Redstone T Nagar")!;
+  const ambattur = insertedBranches.find(b => b.name === "Ambattur")!;
+  const porur = insertedBranches.find(b => b.name === "Porur")!;
+  const ecrSignature = insertedBranches.find(b => b.name === "ECR Redfox Signature")!;
+
+  const sundayOff = insertedPolicies.find(p => p.name === "Sunday Off")!;
+  const hkPolicy = insertedPolicies.find(p => p.name === "Housekeeping Monthly Off (1 Sunday/Month)")!;
+  const standard4WkPolicy = insertedPolicies.find(p => p.name === "Standard 4-Week Off (4 Sundays/Month)")!;
+
+  const branchMap: Record<string, number> = {
+    "Nungambakkam": nungambakkam.id,
+    "ECR": ecrSignature.id,
+    "Porur": porur.id,
+    "Tnagar Redfox": redfoxTnagar.id,
+    "Tnagar Redstone": redstoneTnagar.id,
+    "Ambattur": ambattur.id,
+  };
+
+  const shiftMap: Record<string, number> = {};
+  insertedShifts.forEach(s => {
+    shiftMap[s.name] = s.id;
+  });
+
+  const rawEmployees = [
+    { name: "Akheem", branch: "Nungambakkam", department: "Housekeeping", shift: "9:00 AM to 9:00 PM", phone: "8838695618", salary: 14000, gender: "male" },
+    { name: "Amudha", branch: "ECR", department: "Housekeeping", shift: "10:00 AM to 6:00 PM", phone: "9876501003", salary: 14000, gender: "female" },
+    { name: "Arun", branch: "Nungambakkam", department: "IT", shift: "9:00 AM to 7:00 PM", phone: "6385349075", salary: 15000, gender: "male" },
+    { name: "Ashok", branch: "Porur", department: "Housekeeping", shift: "7:00 PM to 7:00 AM", phone: "8603353325", salary: 13000, gender: "male" },
+    { name: "Chilanjeet", branch: "Nungambakkam", department: "Housekeeping", shift: "9:00 PM to 9:00 AM", phone: "9876501007", salary: 13000, gender: "male" },
+    { name: "Chinnathambi", branch: "ECR", department: "Security", shift: "8:00 PM to 8:00 AM", phone: "9876501008", salary: 15000, gender: "male" },
+    { name: "Christopher", branch: "Nungambakkam", department: "IT", shift: "9:00 AM to 7:00 PM", phone: "6369670130", salary: 15000, gender: "male" },
+    { name: "Danchusurang", branch: "Tnagar Redfox", department: "Housekeeping", shift: "10:00 AM to 10:00 PM", phone: "9394366226", salary: 13000, gender: "male" },
+    { name: "Elumalai", branch: "ECR", department: "Maintenance", shift: "9:00 AM to 9:00 PM", phone: "9655365993", salary: 22000, gender: "male" },
+    { name: "Eshwar", branch: "Tnagar Redstone", department: "Front Office", shift: "9:00 AM to 9:00 PM", phone: "7845343472", salary: 20000, gender: "male" },
+    { name: "Gowtham", branch: "ECR", department: "Housekeeping", shift: "12:00 AM to 12:00 PM", phone: "9876501015", salary: 13000, gender: "male" },
+    { name: "Jagathees", branch: "ECR", department: "Front Office", shift: "10:00 AM to 10:00 PM", phone: "7094660027", salary: 18000, gender: "male" },
+    { name: "Jagathees Waran", branch: "Nungambakkam", department: "Digital Marketing", shift: "9:00 AM to 7:00 PM", phone: "9042045671", salary: 15000, gender: "male" },
+    { name: "Jai", branch: "Nungambakkam", department: "Housekeeping", shift: "9:00 AM to 9:00 PM", phone: "8248818588", salary: 15000, gender: "male" },
+    { name: "Jithendran", branch: "Tnagar Redfox", department: "Front Office", shift: "9:00 PM to 9:00 AM", phone: "6374100163", salary: 17000, gender: "male" },
+    { name: "Kabita", branch: "Porur", department: "Housekeeping", shift: "Full Duty", phone: "8603353325", salary: 12000, gender: "female" },
+    { name: "Kim", branch: "Tnagar Redfox", department: "Housekeeping", shift: "9:00 AM to 9:00 PM", phone: "6001741996", salary: 12000, gender: "female" },
+    { name: "Krishna", branch: "Tnagar Redstone", department: "Housekeeping", shift: "9:00 AM to 9:00 PM", phone: "9395105213", salary: 12000, gender: "male" },
+    { name: "Lakshmi Kanth", branch: "Ambattur", department: "Front Office", shift: "Full Duty", phone: "6379746124", salary: 15000, gender: "male" },
+    { name: "Meena", branch: "Nungambakkam", department: "Front Office", shift: "9:00 AM to 7:00 PM", phone: "8122350869", salary: 15000, gender: "female" },
+    { name: "Milan", branch: "Nungambakkam", department: "Housekeeping", shift: "9:00 AM to 9:00 PM", phone: "8753932581", salary: 14000, gender: "male" },
+    { name: "Mohan Raj", branch: "Tnagar Redfox", department: "Front Office", shift: "9:00 AM to 9:00 PM", phone: "9003144819", salary: 18000, gender: "male" },
+    { name: "Pallab", branch: "Tnagar Redstone", department: "Housekeeping", shift: "9:00 PM to 9:00 AM", phone: "8856097909", salary: 14000, gender: "male" },
+    { name: "Rakesh", branch: "Porur", department: "Front Office", shift: "7:00 AM to 7:00 PM", phone: "7200982240", salary: 18000, gender: "male" },
+    { name: "Rithesh", branch: "Nungambakkam", department: "Front Office", shift: "9:00 PM to 9:00 AM", phone: "9025065824", salary: 15000, gender: "male" },
+    { name: "Santhi", branch: "Ambattur", department: "Housekeeping", shift: "Full Duty", phone: "6379746124", salary: 12000, gender: "female" },
+    { name: "Shanumuga Sundaram", branch: "Nungambakkam", department: "HR", shift: "9:00 AM to 7:00 PM", phone: "8220305867", salary: 15000, gender: "male" },
+    { name: "Usha", branch: "Nungambakkam", department: "Housekeeping", shift: "10:00 AM to 10:00 PM", phone: "8472908883", salary: 12000, gender: "female" },
+    { name: "Pandiyan", branch: "Nungambakkam", department: "Maintenance", shift: "11:00 AM to 9:00 PM", phone: "8807332035", salary: 26000, gender: "male" }
+  ];
+
+  const mappedEmployees = rawEmployees.map((emp, index) => {
+    const idNum = index + 1;
+    const employeeId = `EMP${String(idNum).padStart(3, "0")}`;
+    const nameParts = emp.name.trim().split(/\s+/);
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(" ");
+
+    const cleanFirstName = firstName.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const cleanLastName = lastName ? lastName.toLowerCase().replace(/[^a-z0-9]/g, "") : "";
+    const emailPrefix = cleanLastName ? `${cleanFirstName}.${cleanLastName}` : cleanFirstName;
+    const email = `${emailPrefix}@redfoxdemo.com`;
+    const branchId = branchMap[emp.branch];
+    const shiftId = shiftMap[emp.shift];
+    
+    let weeklyOffPolicyId = standard4WkPolicy.id;
+    if (emp.department === "Housekeeping") {
+      weeklyOffPolicyId = hkPolicy.id;
+    }
+
+    let designation = "Staff";
+    if (emp.department === "Housekeeping") designation = "Housekeeping Staff";
+    else if (emp.department === "IT") designation = "IT Support Specialist";
+    else if (emp.department === "Security") designation = "Security Guard";
+    else if (emp.department === "Maintenance") designation = "Maintenance Technician";
+    else if (emp.department === "Front Office") designation = "Front Office Executive";
+    else if (emp.department === "Digital Marketing") designation = "Digital Marketer";
+    else if (emp.department === "HR") designation = "HR Executive";
+
+    return {
+      employeeId,
+      firstName,
+      lastName,
+      email,
+      phone: emp.phone,
+      gender: emp.gender,
+      address: `${emp.branch}, Chennai`,
+      department: emp.department,
+      designation,
+      branchId,
+      shiftId: shiftId || null,
+      weeklyOffPolicyId,
+      joiningDate: "2024-01-15",
+      employmentType: "full_time",
+      status: "active",
+      salary: String(emp.salary),
+      emailVerified: true,
+    };
+  });
+
+  await db.insert(employeesTable).values(mappedEmployees);
+
+  // Create user accounts for all employees with default passwords (ONLY first 4 letters of name)
+  const insertedEmps = await db.select().from(employeesTable);
+  for (const emp of insertedEmps) {
+    let role = "employee";
+    if (emp.department === "HR") {
+      role = "hr_manager";
+    } else if (emp.employeeId === "EMP003" || emp.designation.toLowerCase().includes("manager")) {
+      role = "branch_manager";
+    }
+
+    const firstFour = emp.firstName.substring(0, 4).toUpperCase().padEnd(4, "X");
+    const defaultPass = firstFour;
+    const passwordHash = hashPassword(defaultPass);
+
     await db.insert(usersTable).values({
-      email: "admin@redfoxhotel.com",
-      passwordHash: hashPassword("admin123"),
-      name: "Super Admin",
-      role: "super_admin",
+      email: emp.email,
+      passwordHash,
+      name: `${emp.firstName} ${emp.lastName}`.trim(),
+      role,
+      branchId: emp.branchId,
+      employeeId: emp.id,
     });
   }
 
-  // Employees
-  const existingEmps = await db.select().from(employeesTable).limit(1);
-  if (existingEmps.length === 0) {
-    const branches = await db.select().from(branchesTable);
-    const mumbai = branches.find(b => b.name.includes("Mumbai"))!;
-    const delhi = branches.find(b => b.name.includes("Delhi"))!;
-    const bangalore = branches.find(b => b.name.includes("Bangalore"))!;
-    const shifts = await db.select().from(shiftsTable);
-    const generalShift = shifts.find(s => s.name === "General Shift")!;
-    const morningShift = shifts.find(s => s.name === "Morning Shift")!;
-    const policies = await db.select().from(weeklyOffPoliciesTable);
-    const sundayOff = policies.find(p => p.name === "Sunday Off")!;
 
-    const employees = [
-      { employeeId: "EMP001", firstName: "Rahul", lastName: "Sharma", email: "rahul.sharma@redfoxhotel.com", phone: "9876543210", gender: "male", dob: "1985-06-15", address: "Mumbai, Maharashtra", department: "HR", designation: "HR Manager", branchId: mumbai.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2020-01-15", employmentType: "full_time", status: "active", salary: "65000" },
-      { employeeId: "EMP002", firstName: "Priya", lastName: "Patel", email: "priya.patel@redfoxhotel.com", phone: "9876543211", gender: "female", dob: "1990-03-22", address: "Mumbai, Maharashtra", department: "Front Office", designation: "Front Desk Executive", branchId: mumbai.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2021-03-10", employmentType: "full_time", status: "active", salary: "32000" },
-      { employeeId: "EMP003", firstName: "Amit", lastName: "Kumar", email: "amit.kumar@redfoxhotel.com", phone: "9876543212", gender: "male", dob: "1988-11-08", address: "Delhi, India", department: "Food & Beverage", designation: "F&B Manager", branchId: delhi.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2019-07-20", employmentType: "full_time", status: "active", salary: "55000" },
-      { employeeId: "EMP004", firstName: "Sunita", lastName: "Reddy", email: "sunita.reddy@redfoxhotel.com", phone: "9876543213", gender: "female", dob: "1992-08-14", address: "Bangalore, Karnataka", department: "Housekeeping", designation: "Housekeeper", branchId: bangalore.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2022-01-05", employmentType: "full_time", status: "active", salary: "28000" },
-      { employeeId: "EMP005", firstName: "Vikas", lastName: "Singh", email: "vikas.singh@redfoxhotel.com", phone: "9876543214", gender: "male", dob: "1987-04-30", address: "Mumbai, Maharashtra", department: "Security", designation: "Security Supervisor", branchId: mumbai.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2020-09-15", employmentType: "full_time", status: "active", salary: "35000" },
-      { employeeId: "EMP006", firstName: "Neha", lastName: "Gupta", email: "neha.gupta@redfoxhotel.com", phone: "9876543215", gender: "female", dob: "1993-12-20", address: "Delhi, India", department: "Finance", designation: "Accounts Executive", branchId: delhi.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2021-06-01", employmentType: "full_time", status: "active", salary: "38000" },
-      { employeeId: "EMP007", firstName: "Rajesh", lastName: "Nair", email: "rajesh.nair@redfoxhotel.com", phone: "9876543216", gender: "male", dob: "1983-09-05", address: "Bangalore, Karnataka", department: "Maintenance", designation: "Maintenance Manager", branchId: bangalore.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2018-11-12", employmentType: "full_time", status: "active", salary: "42000" },
-      { employeeId: "EMP008", firstName: "Meena", lastName: "Joshi", email: "meena.joshi@redfoxhotel.com", phone: "9876543217", gender: "female", dob: "1995-02-28", address: "Mumbai, Maharashtra", department: "Kitchen", designation: "Sous Chef", branchId: mumbai.id, shiftId: morningShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2022-08-20", employmentType: "full_time", status: "active", salary: "45000" },
-      { employeeId: "EMP009", firstName: "Arjun", lastName: "Mehta", email: "arjun.mehta@redfoxhotel.com", phone: "9876543218", gender: "male", dob: "1991-07-11", address: "Delhi, India", department: "IT", designation: "IT Executive", branchId: delhi.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2021-02-15", employmentType: "full_time", status: "active", salary: "48000" },
-      { employeeId: "EMP010", firstName: "Pooja", lastName: "Verma", email: "pooja.verma@redfoxhotel.com", phone: "9876543219", gender: "female", dob: "1994-05-17", address: "Bangalore, Karnataka", department: "Sales & Marketing", designation: "Marketing Executive", branchId: bangalore.id, shiftId: generalShift.id, weeklyOffPolicyId: sundayOff.id, joiningDate: "2023-03-01", employmentType: "full_time", status: "active", salary: "40000" },
-    ];
 
-    await db.insert(employeesTable).values(employees);
-
-    // Create user accounts for HR manager and branch managers
-    const insertedEmps = await db.select().from(employeesTable).limit(10);
-    const rahul = insertedEmps.find(e => e.employeeId === "EMP001");
-    const amit = insertedEmps.find(e => e.employeeId === "EMP003");
-
-    if (rahul) {
-      await db.insert(usersTable).values({
-        email: "hr@redfoxhotel.com",
-        passwordHash: hashPassword("hr123"),
-        name: "Rahul Sharma",
-        role: "hr_manager",
-        branchId: rahul.branchId,
-        employeeId: rahul.id,
-      }).onConflictDoNothing();
-    }
-
-    if (amit) {
-      await db.insert(usersTable).values({
-        email: "manager@redfoxhotel.com",
-        passwordHash: hashPassword("manager123"),
-        name: "Amit Kumar",
-        role: "branch_manager",
-        branchId: amit.branchId,
-        employeeId: amit.id,
-      }).onConflictDoNothing();
-    }
-  }
-
-  // Attendance for last 7 days
-  const existingAttendance = await db.select().from(attendanceTable).limit(1);
-  if (existingAttendance.length === 0) {
-    const employees = await db.select().from(employeesTable);
-    const statuses = ["present", "present", "present", "present", "late", "absent", "weekly_off"];
-    
-    for (let dayOffset = 6; dayOffset >= 0; dayOffset--) {
-      const date = new Date(Date.now() - dayOffset * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-      const dayOfWeek = new Date(date).getDay(); // 0 = Sunday
-
-      for (const emp of employees) {
-        const status = dayOfWeek === 0 ? "weekly_off" : statuses[Math.floor(Math.random() * 5)];
-        await db.insert(attendanceTable).values({
-          employeeId: emp.id,
-          date,
-          status,
-          checkIn: status === "present" ? "09:05" : status === "late" ? "09:35" : null,
-          checkOut: ["present", "late"].includes(status) ? "18:10" : null,
-          workingHours: ["present", "late"].includes(status) ? "8" : null,
-          lateMinutes: status === "late" ? 25 : null,
-          overtimeHours: null,
-          remarks: null,
-        });
-      }
-    }
-  }
 
   // Leave requests
   const existingLeaves = await db.select().from(leavesTable).limit(1);
@@ -222,7 +290,6 @@ async function seed() {
   if (existingHolidays.length === 0) {
     const year = new Date().getFullYear();
     await db.insert(holidaysTable).values([
-      { name: "New Year's Day", date: `${year}-01-01` },
       { name: "Republic Day", date: `${year}-01-26` },
       { name: "Holi", date: `${year}-03-14` },
       { name: "Good Friday", date: `${year}-04-18` },

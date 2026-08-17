@@ -48,7 +48,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-4">
         <StatCard title="Total Employees" value={stats?.totalEmployees ?? 0} icon={Users} />
         <StatCard title="Present Today" value={stats?.presentToday ?? 0} icon={UserCheck} subtitle="Active employees" />
-        <StatCard title="Absent Today" value={stats?.absentToday ?? 0} icon={UserX} subtitle="Not reported" />
+        <StatCard title="Absent Today" value={stats?.absentToday ?? 0} icon={UserX} subtitle={stats?.weeklyOffToday ? `Excludes ${stats.weeklyOffToday} weekly off` : "Not reported"} />
         <StatCard title="On Leave" value={stats?.leaveToday ?? 0} icon={Calendar} />
         <StatCard title="Late Arrivals" value={stats?.lateArrivals ?? 0} icon={Clock} subtitle="Past grace period" />
         <StatCard title="Total Branches" value={stats?.totalBranches ?? 0} icon={Building2} />

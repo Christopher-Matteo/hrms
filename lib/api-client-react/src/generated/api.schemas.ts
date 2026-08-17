@@ -86,7 +86,6 @@ export interface Activity {
 export interface BirthdayEmployee {
   id: number;
   name: string;
-  dob: string;
   department: string;
   /** @nullable */
   photoUrl?: string | null;
@@ -162,6 +161,27 @@ export interface ShiftUpdate {
   startTime?: string;
   endTime?: string;
   gracePeriodMinutes?: number;
+}
+
+export interface ShiftSchedule {
+  id: number;
+  employeeId: number;
+  date: string;
+  shiftId: number;
+  /** @nullable */
+  shiftName?: string | null;
+  /** @nullable */
+  startTime?: string | null;
+  /** @nullable */
+  endTime?: string | null;
+  createdAt?: string;
+}
+
+export interface ShiftScheduleInput {
+  employeeId: number;
+  shiftId: number;
+  date?: string;
+  dates?: string[];
 }
 
 export type WeeklyOffPolicyPolicyType = typeof WeeklyOffPolicyPolicyType[keyof typeof WeeklyOffPolicyPolicyType];
@@ -246,8 +266,6 @@ export interface Employee {
   phone: string;
   gender: EmployeeGender;
   /** @nullable */
-  dob?: string | null;
-  /** @nullable */
   address?: string | null;
   /** @nullable */
   emergencyContact?: string | null;
@@ -286,27 +304,27 @@ export interface Employee {
 }
 
 export interface EmployeeInput {
+  employeeId?: string;
   firstName: string;
-  lastName: string;
-  email: string;
+  lastName?: string;
+  email?: string;
   phone: string;
-  gender: string;
-  /** @nullable */
-  dob?: string | null;
+  gender?: string;
   /** @nullable */
   address?: string | null;
   /** @nullable */
   emergencyContact?: string | null;
   department: string;
-  designation: string;
+  designation?: string;
   branchId: number;
   /** @nullable */
   shiftId?: number | null;
   /** @nullable */
   weeklyOffPolicyId?: number | null;
-  joiningDate: string;
-  employmentType: string;
+  joiningDate?: string;
+  employmentType?: string;
   salary: number;
+  password?: string;
   /** @nullable */
   bankName?: string | null;
   /** @nullable */
@@ -329,8 +347,6 @@ export interface EmployeeUpdate {
   email?: string;
   phone?: string;
   gender?: string;
-  /** @nullable */
-  dob?: string | null;
   /** @nullable */
   address?: string | null;
   /** @nullable */
@@ -618,6 +634,7 @@ export interface PayrollRecord {
   totalDeductions?: number;
   netSalary: number;
   status: PayrollRecordStatus;
+  manualAttendanceCount: number;
   createdAt?: string;
 }
 
@@ -788,6 +805,12 @@ export interface LeaveReportRow {
   pendingLeaves?: number;
   approvedLeaves?: number;
 }
+
+export type GetShiftSchedulesParams = {
+employeeId?: number;
+startDate?: string;
+endDate?: string;
+};
 
 export type GetEmployeesParams = {
 /**
