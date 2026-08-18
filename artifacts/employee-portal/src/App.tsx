@@ -1158,7 +1158,7 @@ export default function App() {
                         const limitReached = weeklyOffCount >= limit;
 
                         return schedule.length > 0 ? (
-                          schedule.slice(0, 1).map((s) => (
+                          schedule.map((s) => (
                             <div key={s.id} className="flex justify-between items-center text-sm py-1.5 border-b border-zinc-100 dark:border-zinc-800 last:border-0">
                               <div className="flex flex-col">
                                 <span className="font-semibold text-slate-800 dark:text-zinc-200">{s.date}</span>

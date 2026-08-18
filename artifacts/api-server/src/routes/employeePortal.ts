@@ -519,9 +519,13 @@ router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, 
       shiftName: shiftsTable.name,
       startTime: shiftsTable.startTime,
       endTime: shiftsTable.endTime,
+      department: employeesTable.department,
+      weeklyOffPolicyId: employeesTable.weeklyOffPolicyId,
+      policyType: weeklyOffPoliciesTable.policyType,
     })
     .from(employeesTable)
     .leftJoin(shiftsTable, eq(employeesTable.shiftId, shiftsTable.id))
+    .leftJoin(weeklyOffPoliciesTable, eq(employeesTable.weeklyOffPolicyId, weeklyOffPoliciesTable.id))
     .where(eq(employeesTable.id, req.user.employeeId));
 
   if (!emp) {
@@ -529,12 +533,17 @@ router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, 
     return;
   }
 
-  // 2. Generate next 1 date (tomorrow) in IST (en-CA YYYY-MM-DD format)
+  // 2. Generate next limitDays in IST (en-CA YYYY-MM-DD format)
+  const isHousekeeping = emp.department?.toLowerCase() === "housekeeping" || emp.policyType === "one_week_per_month" || emp.policyType === "one_day_per_month";
+  const limitDays = isHousekeeping ? 1 : 4;
+
   const targetDates: string[] = [];
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  const dateStr = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-  targetDates.push(dateStr);
+  for (let i = 1; i <= limitDays; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    targetDates.push(dateStr);
+  }
 
   // 3. Fetch custom shift schedules for these dates
   const customSchedules = await db
