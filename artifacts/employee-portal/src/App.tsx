@@ -1176,14 +1176,18 @@ export default function App() {
                                     Weekoff
                                   </span>
                                 ) : (
-                                  !limitReached && (
-                                    <button
-                                      onClick={() => handleMarkWeekoff(s.date)}
-                                      className="text-[10px] px-2 py-0.5 rounded font-bold transition-all border bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-500 hover:text-white hover:border-blue-500"
-                                    >
-                                      Weekoff
-                                    </button>
-                                  )
+                                  <button
+                                    onClick={() => !limitReached && handleMarkWeekoff(s.date)}
+                                    disabled={limitReached}
+                                    className={`text-[10px] px-2 py-0.5 rounded font-bold transition-all border ${
+                                      limitReached
+                                        ? "bg-zinc-100 text-zinc-400 border-zinc-200 cursor-not-allowed opacity-50 blur-[0.5px]"
+                                        : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-500 hover:text-white hover:border-blue-500"
+                                    }`}
+                                    title={limitReached ? `Monthly limit of ${limit} week-off(s) reached` : "Mark as Weekoff"}
+                                  >
+                                    Weekoff
+                                  </button>
                                 )}
                               </div>
                             </div>
