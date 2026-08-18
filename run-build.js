@@ -3,12 +3,12 @@ const { execSync } = require('child_process');
 function main() {
   if (process.env.VERCEL) {
     console.log('==========================================================');
-    console.log('  Vercel Build Router - Deploying HRMS Frontend Only');
+    console.log('  Vercel Build Router - Deploying Frontends');
     console.log('==========================================================');
     try {
-      execSync('pnpm --filter @workspace/hotel-hrms run build', { stdio: 'inherit', shell: true });
+      execSync('pnpm --filter @workspace/hotel-hrms run build && pnpm --filter @workspace/employee-portal run build', { stdio: 'inherit', shell: true });
     } catch (error) {
-      console.error('[ERROR] Build failed for @workspace/hotel-hrms');
+      console.error('[ERROR] Build failed for frontends');
       process.exit(1);
     }
   } else {
