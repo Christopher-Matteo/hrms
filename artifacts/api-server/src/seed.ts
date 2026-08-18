@@ -288,6 +288,8 @@ async function seed() {
   // Holidays
   const existingHolidays = await db.select().from(holidaysTable).limit(1);
   if (existingHolidays.length === 0) {
+    // Commented out holiday seeding as per user request to remove holidays
+    /*
     const year = new Date().getFullYear();
     await db.insert(holidaysTable).values([
       { name: "Republic Day", date: `${year}-01-26` },
@@ -300,6 +302,7 @@ async function seed() {
       { name: "Dussehra", date: `${year}-10-23` },
       { name: "Christmas Day", date: `${year}-12-25` },
     ]);
+    */
   }
 
   // Audit logs
