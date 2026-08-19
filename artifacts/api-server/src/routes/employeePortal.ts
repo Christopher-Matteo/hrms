@@ -651,7 +651,19 @@ router.post("/shifts/weekoff", requireAuth(), async (req: AuthenticatedRequest, 
 
   const weeklyOffCount = existingRecords.filter(r => r.status === "weekly_off").length;
 
-  // 4. Check policy limits
+  // 4. Check if it's already a weekoff to toggle it off (unmark)
+  const [existing] = await db
+    .select()
+    .from(attendanceTable)
+    .where(and(eq(attendanceTable.employeeId, emp.id), eq(attendanceTable.date, date)));
+
+  if (existing && existing.status === "weekly_off") {
+    await db.delete(attendanceTable).where(eq(attendanceTable.id, existing.id));
+    res.json({ success: true, status: "removed" });
+    return;
+  }
+
+  // 5. Check policy limits (only when marking a new weekoff)
   const policyType = policy?.policyType ?? "one_day_per_week";
   const isHousekeeping = emp.department?.toLowerCase() === "housekeeping";
 
@@ -667,12 +679,7 @@ router.post("/shifts/weekoff", requireAuth(), async (req: AuthenticatedRequest, 
     }
   }
 
-  // 5. Create or update the attendance record for that date
-  const [existing] = await db
-    .select()
-    .from(attendanceTable)
-    .where(and(eq(attendanceTable.employeeId, emp.id), eq(attendanceTable.date, date)));
-
+  // 6. Create or update the attendance record for that date
   if (existing) {
     await db
       .update(attendanceTable)
@@ -698,7 +705,7 @@ router.post("/shifts/weekoff", requireAuth(), async (req: AuthenticatedRequest, 
     });
   }
 
-  res.json({ success: true });
+  res.json({ success: true, status: "marked" });
 });
 
 // Request shift swap

@@ -266,7 +266,7 @@ export default function App() {
       });
       const data = await res.json();
       if (res.ok) {
-        showFeedback("success", "Weekly off marked successfully!");
+        showFeedback("success", data.status === "removed" ? "Weekly off removed successfully!" : "Weekly off marked successfully!");
         fetchSchedule(token);
         fetchStats(token);
         fetchAttendance(token, attendanceFilter);
@@ -1172,9 +1172,13 @@ export default function App() {
                               </div>
                               <div>
                                 {s.isWeekoff ? (
-                                  <span className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded font-bold uppercase">
+                                  <button
+                                    onClick={() => handleMarkWeekoff(s.date)}
+                                    className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded font-bold uppercase border border-blue-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all cursor-pointer"
+                                    title="Click to remove weekly off"
+                                  >
                                     Weekoff
-                                  </span>
+                                  </button>
                                 ) : (
                                   <button
                                     onClick={() => !limitReached && handleMarkWeekoff(s.date)}
