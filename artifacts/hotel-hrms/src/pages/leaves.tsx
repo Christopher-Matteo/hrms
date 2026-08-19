@@ -20,10 +20,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function LeavesPage() {
   const { user } = useAuth();
   const { data: employees } = useGetEmployees();
-  const [statusFilter, setStatusFilter] = useState("all");
-  const { data: leaves, isLoading, refetch } = useGetLeaveRequests({
-    status: statusFilter !== "all" ? statusFilter : undefined,
-  });
+  const { data: leaves, isLoading, refetch } = useGetLeaveRequests();
   const createLeave = useCreateLeaveRequest();
   const approveLeave = useApproveLeave();
   const rejectLeave = useRejectLeave();
@@ -173,17 +170,6 @@ export default function LeavesPage() {
         </div>
       </div>
 
-      <div className="flex gap-3">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
 
       {isLoading ? (
         <div className="flex justify-center py-12"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
@@ -198,7 +184,6 @@ export default function LeavesPage() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Dates</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-muted-foreground">Days</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Reason</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-muted-foreground">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -228,15 +213,10 @@ export default function LeavesPage() {
                     <td className="px-4 py-3 text-muted-foreground">{l.startDate} → {l.endDate}</td>
                     <td className="px-4 py-3 text-center font-medium">{l.days}</td>
                     <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">{l.reason}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", STATUS_COLORS[l.status] ?? "bg-gray-100 text-gray-700")}>
-                        {l.status}
-                      </span>
-                    </td>
                   </tr>
                 ))}
                 {!leaves?.length && (
-                  <tr><td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                  <tr><td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">
                     <Calendar className="w-8 h-8 mx-auto mb-2" />
                     No leave requests found
                   </td></tr>
