@@ -117,7 +117,7 @@ export default function LeavesPage() {
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="gap-2"><Plus className="w-4 h-4" />New Request</Button>
+            <Button size="sm" className="gap-2"><Plus className="w-4 h-4" />Add Leave</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Create Leave Record</DialogTitle></DialogHeader>
@@ -199,7 +199,6 @@ export default function LeavesPage() {
                   <th className="text-center px-4 py-3 text-xs font-semibold text-muted-foreground">Days</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Reason</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-muted-foreground">Status</th>
-                  {canManage && <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground">Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -234,26 +233,10 @@ export default function LeavesPage() {
                         {l.status}
                       </span>
                     </td>
-                    {canManage && (
-                      <td className="px-4 py-3 text-right">
-                        {l.status === "pending" && (
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600 hover:text-green-700"
-                              onClick={() => approveLeave.mutate({ id: l.id, data: {} as any }, { onSuccess: () => refetch() })}>
-                              <Check className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
-                              onClick={() => rejectLeave.mutate({ id: l.id, data: {} as any }, { onSuccess: () => refetch() })}>
-                              <X className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        )}
-                      </td>
-                    )}
                   </tr>
                 ))}
                 {!leaves?.length && (
-                  <tr><td colSpan={canManage ? 7 : 6} className="px-4 py-12 text-center text-muted-foreground">
+                  <tr><td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
                     <Calendar className="w-8 h-8 mx-auto mb-2" />
                     No leave requests found
                   </td></tr>
