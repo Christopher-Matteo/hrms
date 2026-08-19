@@ -53,7 +53,7 @@ router.post("/advances", async (req, res): Promise<void> => {
       employeeId: Number(employeeId),
       amount: String(amount),
       reason,
-      status: "pending",
+      status: "approved",
       approvedById: null,
       remainingBalance: String(amount),
       date: date ?? today,

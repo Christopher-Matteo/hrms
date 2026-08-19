@@ -20,10 +20,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function AdvancesPage() {
   const { user } = useAuth();
   const { data: employees } = useGetEmployees();
-  const [statusFilter, setStatusFilter] = useState("all");
-  const { data: advances, isLoading, refetch } = useGetAdvances({
-    status: statusFilter !== "all" ? statusFilter : undefined,
-  });
+  const { data: advances, isLoading, refetch } = useGetAdvances();
   const createAdvance = useCreateAdvance();
   const updateAdvance = useUpdateAdvance();
   const [open, setOpen] = useState(false);
@@ -72,18 +69,6 @@ export default function AdvancesPage() {
         </Dialog>
       </div>
 
-      <div className="flex gap-3">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
-            <SelectItem value="recovered">Recovered</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
 
       {isLoading ? (
         <div className="flex justify-center py-12"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
@@ -98,8 +83,6 @@ export default function AdvancesPage() {
                   <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground">Amount</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground">Remaining</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Reason</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-muted-foreground">Status</th>
-                  {canManage && <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground">Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -110,29 +93,10 @@ export default function AdvancesPage() {
                     <td className="px-4 py-3 text-right font-medium">₹{Number(a.amount).toLocaleString("en-IN")}</td>
                     <td className="px-4 py-3 text-right text-muted-foreground">₹{Number(a.remainingBalance).toLocaleString("en-IN")}</td>
                     <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">{a.reason}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", STATUS_COLORS[a.status] ?? "bg-gray-100 text-gray-700")}>{a.status}</span>
-                    </td>
-                    {canManage && (
-                      <td className="px-4 py-3 text-right">
-                        {a.status === "pending" && (
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600"
-                              onClick={() => updateAdvance.mutate({ id: a.id, data: { status: "approved" } as any }, { onSuccess: () => refetch() })}>
-                              <Check className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"
-                              onClick={() => updateAdvance.mutate({ id: a.id, data: { status: "rejected" } as any }, { onSuccess: () => refetch() })}>
-                              <X className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        )}
-                      </td>
-                    )}
                   </tr>
                 ))}
                 {!advances?.length && (
-                  <tr><td colSpan={canManage ? 7 : 6} className="px-4 py-12 text-center text-muted-foreground">
+                  <tr><td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">
                     <CreditCard className="w-8 h-8 mx-auto mb-2" />
                     No advance requests found
                   </td></tr>
