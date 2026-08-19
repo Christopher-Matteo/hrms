@@ -25,25 +25,44 @@ export default function WeeklyOffPage() {
   const createPolicy = useCreateWeeklyOffPolicy();
   const deletePolicy = useDeleteWeeklyOffPolicy();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", policyType: "one_day_per_week", offDays: [] as string[] });
-
-  function toggleDay(day: string) {
-    setForm(f => ({
-      ...f,
-      offDays: f.offDays.includes(day) ? f.offDays.filter(d => d !== day) : [...f.offDays, day]
-    }));
-  }
+  const [form, setForm] = useState({
+    frequency: "monthly",
+    daysCount: "4",
+    daySelect: "Sunday",
+  });
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    
+    // Auto-generate name based on frequency and daysCount
+    const namePrefix = form.frequency === "monthly" ? "month" : "week";
+    const policyName = `${namePrefix}-${form.daysCount}`;
+
+    // Determine policyType
+    let policyType = "custom";
+    const count = parseInt(form.daysCount, 10);
+    if (form.frequency === "monthly") {
+      if (count === 1) policyType = "one_week_per_month";
+      else if (count === 2) policyType = "two_weeks_per_month";
+      else if (count === 3) policyType = "three_weeks_per_month";
+      else if (count === 4) policyType = "four_days_per_month";
+    } else if (form.frequency === "weekly") {
+      if (count === 1) policyType = "one_day_per_week";
+      else if (count === 2) policyType = "two_days_per_week";
+    }
+
     createPolicy.mutate({
       data: {
-        name: form.name,
-        policyType: form.policyType,
-        offDays: form.offDays.length > 0 ? JSON.stringify(form.offDays) : undefined,
+        name: policyName,
+        policyType: policyType,
+        offDays: JSON.stringify([form.daySelect]),
       } as any
     }, {
-      onSuccess: () => { refetch(); setOpen(false); setForm({ name: "", policyType: "one_day_per_week", offDays: [] }); }
+      onSuccess: () => {
+        refetch();
+        setOpen(false);
+        setForm({ frequency: "monthly", daysCount: "4", daySelect: "Sunday" });
+      }
     });
   }
 
@@ -61,33 +80,47 @@ export default function WeeklyOffPage() {
           <DialogContent>
             <DialogHeader><DialogTitle>Add Weekly Off Policy</DialogTitle></DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4 mt-2">
-              <div><Label>Policy Name *</Label><Input className="mt-1" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required /></div>
               <div>
-                <Label>Policy Type</Label>
-                <Select value={form.policyType} onValueChange={v => setForm(f => ({ ...f, policyType: v }))}>
+                <Label>Frequency</Label>
+                <Select value={form.frequency} onValueChange={v => setForm(f => ({ ...f, frequency: v }))}>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>{POLICY_TYPES.map(pt => <SelectItem key={pt.value} value={pt.value}>{pt.label}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
                 </Select>
               </div>
-              {!["rotational"].includes(form.policyType) && (
-                <div>
-                  <Label>Off Days</Label>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {DAYS.map(day => (
-                      <button
-                        key={day}
-                        type="button"
-                        className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                          form.offDays.includes(day) ? "bg-primary text-white border-primary" : "border-border text-muted-foreground hover:border-primary"
-                        }`}
-                        onClick={() => toggleDay(day)}
-                      >
-                        {day.slice(0, 3)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              
+              <div>
+                <Label>Number of Days</Label>
+                <Select value={form.daysCount} onValueChange={v => setForm(f => ({ ...f, daysCount: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 Day</SelectItem>
+                    <SelectItem value="2">2 Days</SelectItem>
+                    <SelectItem value="3">3 Days</SelectItem>
+                    <SelectItem value="4">4 Days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Weekly Off Day</Label>
+                <Select value={form.daySelect} onValueChange={v => setForm(f => ({ ...f, daySelect: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="anyday">Any Day (Flexible/Rotational)</SelectItem>
+                    <SelectItem value="Sunday">Sunday</SelectItem>
+                    <SelectItem value="Monday">Monday</SelectItem>
+                    <SelectItem value="Tuesday">Tuesday</SelectItem>
+                    <SelectItem value="Wednesday">Wednesday</SelectItem>
+                    <SelectItem value="Thursday">Thursday</SelectItem>
+                    <SelectItem value="Friday">Friday</SelectItem>
+                    <SelectItem value="Saturday">Saturday</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="flex gap-2 justify-end">
                 <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
                 <Button type="submit" disabled={createPolicy.isPending}>Create Policy</Button>
@@ -127,8 +160,12 @@ export default function WeeklyOffPage() {
                           <span className="font-medium">{p.name}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{POLICY_TYPES.find(pt => pt.value === p.policyType)?.label ?? p.policyType}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{offDaysDisplay}</td>
+                      <td className="px-4 py-3 text-muted-foreground capitalize">
+                        {p.name?.startsWith("month-") ? `Monthly (${p.name.split("-")[1]} Days)` : p.name?.startsWith("week-") ? `Weekly (${p.name.split("-")[1]} Days)` : p.policyType.replace(/_/g, " ")}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground capitalize">
+                        {offDaysDisplay === "anyday" ? "Any Day (Flexible)" : offDaysDisplay}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
                           onClick={() => { if (confirm(`Delete policy "${p.name}"?`)) deletePolicy.mutate({ id: p.id }, { onSuccess: () => refetch() }); }}>
