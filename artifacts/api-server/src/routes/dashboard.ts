@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, employeesTable, attendanceTable, payrollTable, branchesTable, auditLogsTable, holidaysTable, weeklyOffPoliciesTable, shiftsTable } from "@workspace/db";
+import { db, employeesTable, attendanceTable, payrollTable, branchesTable, auditLogsTable, holidaysTable, weeklyOffPoliciesTable, shiftsTable, shiftScheduleTable } from "@workspace/db";
 import { eq, and, sql, gte } from "drizzle-orm";
 import { isEmployeeWeeklyOff } from "../lib/weeklyOffHelper";
 
@@ -52,6 +52,13 @@ router.get("/dashboard/stats", async (req, res): Promise<void> => {
   const policies = await db.select().from(weeklyOffPoliciesTable);
   const shifts = await db.select().from(shiftsTable);
 
+  // Fetch custom schedules for today
+  const todaySchedules = await db
+    .select()
+    .from(shiftScheduleTable)
+    .where(eq(shiftScheduleTable.date, today));
+  const todayScheduleMap = new Map(todaySchedules.map(s => [s.employeeId, s.shiftId]));
+
   let presentToday = 0;
   let absentToday = 0;
   let weeklyOffToday = 0;
@@ -79,8 +86,10 @@ router.get("/dashboard/stats", async (req, res): Promise<void> => {
         } else {
           let isPastWindow = true;
           let startTimeStr = "09:00";
-          if (emp.shiftId) {
-            const sh = shifts.find(s => s.id === emp.shiftId);
+          const customShiftId = todayScheduleMap.get(emp.id);
+          const targetShiftId = customShiftId !== undefined ? customShiftId : emp.shiftId;
+          if (targetShiftId) {
+            const sh = shifts.find(s => s.id === targetShiftId);
             if (sh?.startTime) {
               startTimeStr = sh.startTime;
             }
@@ -146,6 +155,13 @@ router.get("/dashboard/attendance-trend", async (req, res): Promise<void> => {
   const result = [];
   const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
+  // Fetch custom schedules for today
+  const todaySchedules = await db
+    .select()
+    .from(shiftScheduleTable)
+    .where(eq(shiftScheduleTable.date, todayStr));
+  const todayScheduleMap = new Map(todaySchedules.map(s => [s.employeeId, s.shiftId]));
+
   for (let i = 13; i >= 0; i--) {
     const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
     const date = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
@@ -180,8 +196,10 @@ router.get("/dashboard/attendance-trend", async (req, res): Promise<void> => {
 
             if (isToday) {
               let startTimeStr = "09:00";
-              if (emp.shiftId) {
-                const sh = shifts.find(s => s.id === emp.shiftId);
+              const customShiftId = todayScheduleMap.get(emp.id);
+              const targetShiftId = customShiftId !== undefined ? customShiftId : emp.shiftId;
+              if (targetShiftId) {
+                const sh = shifts.find(s => s.id === targetShiftId);
                 if (sh?.startTime) {
                   startTimeStr = sh.startTime;
                 }

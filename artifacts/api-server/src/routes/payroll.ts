@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, payrollTable, employeesTable, attendanceTable, advancesTable, continueDutiesTable, branchesTable, settingsTable, holidaysTable, documentsTable, weeklyOffPoliciesTable, shiftsTable } from "@workspace/db";
+import { db, payrollTable, employeesTable, attendanceTable, advancesTable, continueDutiesTable, branchesTable, settingsTable, holidaysTable, documentsTable, weeklyOffPoliciesTable, shiftsTable, shiftScheduleTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { generatePayslipPdf, uploadFile } from "../lib/storage";
 import { isDateWeeklyOff } from "../lib/weeklyOffHelper";
@@ -55,10 +55,10 @@ async function syncDraftPayroll(
   const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, record.employeeId));
   if (!emp) return record;
 
-  let shift: any = null;
-  if (emp.shiftId) {
-    [shift] = await db.select().from(shiftsTable).where(eq(shiftsTable.id, emp.shiftId));
-  }
+  const shifts = await db.select().from(shiftsTable);
+  const customSchedules = await db.select().from(shiftScheduleTable)
+    .where(and(eq(shiftScheduleTable.employeeId, emp.id), sql`${shiftScheduleTable.date}::text like ${record.month + "%"}`));
+  const customScheduleMap = new Map(customSchedules.map(s => [s.date, s.shiftId]));
 
   const settings = preFetched?.settings ?? (await db.select().from(settingsTable).limit(1))[0];
   const overtimeRate = settings ? Number(settings.overtimeRatePerHour) : 50;
@@ -71,6 +71,10 @@ async function syncDraftPayroll(
     let status = a.status;
     let overtimeHours = a.overtimeHours;
     let lateMinutes = a.lateMinutes;
+
+    const customShiftId = customScheduleMap.get(a.date);
+    const targetShiftId = customShiftId !== undefined ? customShiftId : emp.shiftId;
+    const shift = targetShiftId ? shifts.find(s => s.id === targetShiftId) : null;
 
     if (a.faceVerificationStatus === "Not Verified" || a.faceVerificationStatus === "Mismatched") {
       status = "absent";
