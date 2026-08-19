@@ -28,12 +28,32 @@ export default function LeavesPage() {
   const approveLeave = useApproveLeave();
   const rejectLeave = useRejectLeave();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ employeeId: "", leaveType: "casual", startDate: "", endDate: "", reason: "" });
+  const [form, setForm] = useState({
+    employeeId: "",
+    leaveType: "casual",
+    startDate: "",
+    endDate: "",
+    reason: "",
+    informed: "informed",
+    salaryCalculate: "calculate",
+  });
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     createLeave.mutate({ data: { ...form, employeeId: Number(form.employeeId) } as any }, {
-      onSuccess: () => { refetch(); setOpen(false); }
+      onSuccess: () => {
+        refetch();
+        setOpen(false);
+        setForm({
+          employeeId: "",
+          leaveType: "casual",
+          startDate: "",
+          endDate: "",
+          reason: "",
+          informed: "informed",
+          salaryCalculate: "calculate"
+        });
+      }
     });
   }
 
@@ -43,6 +63,8 @@ export default function LeavesPage() {
       "Employee Name",
       "Employee Code",
       "Leave Type",
+      "Informed",
+      "Salary Calculate",
       "Start Date",
       "End Date",
       "Days",
@@ -54,6 +76,8 @@ export default function LeavesPage() {
       l.employeeName ?? "",
       l.employeeCode ?? "",
       l.leaveType,
+      l.informed ?? "informed",
+      l.salaryCalculate ?? "calculate",
       l.startDate,
       l.endDate,
       l.days,
@@ -84,8 +108,8 @@ export default function LeavesPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">Leave Requests</h1>
-          <p className="text-sm text-muted-foreground">{leaves?.length ?? 0} requests</p>
+          <h1 className="text-xl font-bold">Leave Management</h1>
+          <p className="text-sm text-muted-foreground">{leaves?.length ?? 0} records</p>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" className="gap-2" onClick={exportCSV} disabled={!leaves?.length}>
@@ -96,7 +120,7 @@ export default function LeavesPage() {
             <Button size="sm" className="gap-2"><Plus className="w-4 h-4" />New Request</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Create Leave Request</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>Create Leave Record</DialogTitle></DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4 mt-2">
               <div>
                 <Label>Employee *</Label>
@@ -105,11 +129,33 @@ export default function LeavesPage() {
                   <SelectContent>{employees?.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.firstName} {e.lastName}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Leave Type *</Label>
+                  <Select value={form.leaveType} onValueChange={v => setForm(f => ({ ...f, leaveType: v }))}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>{LEAVE_TYPES.map(t => <SelectItem key={t} value={t}>{t.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Informed State *</Label>
+                  <Select value={form.informed} onValueChange={v => setForm(f => ({ ...f, informed: v }))}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="informed">Informed</SelectItem>
+                      <SelectItem value="uninformed">Not Informed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <div>
-                <Label>Leave Type *</Label>
-                <Select value={form.leaveType} onValueChange={v => setForm(f => ({ ...f, leaveType: v }))}>
+                <Label>Salary Calculation *</Label>
+                <Select value={form.salaryCalculate} onValueChange={v => setForm(f => ({ ...f, salaryCalculate: v }))}>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>{LEAVE_TYPES.map(t => <SelectItem key={t} value={t}>{t.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    <SelectItem value="calculate">Calculate Salary (Paid)</SelectItem>
+                    <SelectItem value="no_calculate">Do Not Calculate (Unpaid)</SelectItem>
+                  </SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -119,7 +165,7 @@ export default function LeavesPage() {
               <div><Label>Reason *</Label><Input className="mt-1" value={form.reason} onChange={set("reason")} required /></div>
               <div className="flex gap-2 justify-end">
                 <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={createLeave.isPending}>Submit Request</Button>
+                <Button type="submit" disabled={createLeave.isPending}>Add Leave</Button>
               </div>
             </form>
           </DialogContent>
@@ -163,7 +209,23 @@ export default function LeavesPage() {
                       <div className="font-medium">{l.employeeName ?? "—"}</div>
                       <div className="text-xs text-muted-foreground">{l.employeeCode}</div>
                     </td>
-                    <td className="px-4 py-3 capitalize text-muted-foreground">{l.leaveType.replace(/_/g, " ")}</td>
+                    <td className="px-4 py-3 capitalize text-muted-foreground">
+                      <div>{l.leaveType.replace(/_/g, " ")}</div>
+                      <div className="text-[10px] flex items-center gap-1.5 mt-1 font-semibold">
+                        <span className={cn(
+                          "px-1.5 py-0.2 rounded border",
+                          l.informed === "informed" ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-orange-50 text-orange-600 border-orange-100"
+                        )}>
+                          {l.informed === "informed" ? "Informed" : "Uninformed"}
+                        </span>
+                        <span className={cn(
+                          "px-1.5 py-0.2 rounded border",
+                          l.salaryCalculate === "calculate" ? "bg-green-50 text-green-600 border-green-100" : "bg-red-50 text-red-600 border-red-100"
+                        )}>
+                          {l.salaryCalculate === "calculate" ? "Paid" : "Unpaid"}
+                        </span>
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">{l.startDate} → {l.endDate}</td>
                     <td className="px-4 py-3 text-center font-medium">{l.days}</td>
                     <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">{l.reason}</td>

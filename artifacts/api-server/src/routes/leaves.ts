@@ -23,6 +23,8 @@ async function formatLeave(l: typeof leavesTable.$inferSelect) {
     reason: l.reason,
     managerComment: l.managerComment,
     approvedById: l.approvedById,
+    informed: l.informed,
+    salaryCalculate: l.salaryCalculate,
     createdAt: l.createdAt.toISOString(),
   };
 }
@@ -43,7 +45,7 @@ router.get("/leaves", async (req, res): Promise<void> => {
 });
 
 router.post("/leaves", async (req, res): Promise<void> => {
-  const { employeeId, leaveType, startDate, endDate, reason } = req.body;
+  const { employeeId, leaveType, startDate, endDate, reason, informed, salaryCalculate } = req.body;
   if (!employeeId || !leaveType || !startDate || !endDate || !reason) {
     res.status(400).json({ error: "Missing required fields" });
     return;
@@ -62,12 +64,56 @@ router.post("/leaves", async (req, res): Promise<void> => {
       startDate,
       endDate,
       days,
-      status: "pending",
+      status: "approved", // Automatically approved when created by HR
       reason,
-      managerComment: null,
+      managerComment: "Created manually by HR",
       approvedById: null,
+      informed: informed || "informed",
+      salaryCalculate: salaryCalculate || "calculate",
     })
     .returning();
+
+  // Create manual attendance records for this approved leave immediately
+  try {
+    const startD = new Date(startDate);
+    const endD = new Date(endDate);
+    const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, Number(employeeId)));
+    const homeBranchId = emp?.branchId ?? null;
+
+    for (let d = new Date(startD); d <= endD; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split("T")[0];
+      
+      const [existing] = await db.select().from(attendanceTable)
+        .where(and(eq(attendanceTable.employeeId, Number(employeeId)), eq(attendanceTable.date, dateStr)));
+        
+      let leaveStatus = "paid_leave";
+      if ((salaryCalculate || "calculate") === "no_calculate") {
+        leaveStatus = "absent";
+      } else if (leaveType === "sick") {
+        leaveStatus = "sick_leave";
+      }
+      
+      const remarks = `Leave (${leaveType}, ${informed || 'informed'}, ${salaryCalculate || 'calculate'}): ${reason}`;
+
+      if (existing) {
+        await db.update(attendanceTable)
+          .set({ status: leaveStatus, homeBranchId, source: "MANUAL", remarks })
+          .where(eq(attendanceTable.id, existing.id));
+      } else {
+        await db.insert(attendanceTable)
+          .values({
+            employeeId: Number(employeeId),
+            date: dateStr,
+            status: leaveStatus,
+            homeBranchId,
+            source: "MANUAL",
+            remarks,
+          });
+      }
+    }
+  } catch (err) {
+    console.error("Failed to populate attendance logs for created leave:", err);
+  }
 
   res.status(201).json(await formatLeave(leave));
 });
@@ -119,11 +165,18 @@ router.patch("/leaves/:id/approve", async (req, res): Promise<void> => {
       const [existing] = await db.select().from(attendanceTable)
         .where(and(eq(attendanceTable.employeeId, employeeId), eq(attendanceTable.date, dateStr)));
         
-      const leaveStatus = leave.leaveType === "sick" ? "sick_leave" : "paid_leave";
+      let leaveStatus = "paid_leave";
+      if (leave.salaryCalculate === "no_calculate") {
+        leaveStatus = "absent";
+      } else if (leave.leaveType === "sick") {
+        leaveStatus = "sick_leave";
+      }
+      
+      const remarks = `Approved leave (${leave.leaveType}, ${leave.informed}, ${leave.salaryCalculate}): ${leave.reason}`;
       
       if (existing) {
         await db.update(attendanceTable)
-          .set({ status: leaveStatus, homeBranchId, source: "MANUAL", remarks: `Approved leave: ${leave.reason}` })
+          .set({ status: leaveStatus, homeBranchId, source: "MANUAL", remarks })
           .where(eq(attendanceTable.id, existing.id));
       } else {
         await db.insert(attendanceTable)
@@ -133,7 +186,7 @@ router.patch("/leaves/:id/approve", async (req, res): Promise<void> => {
             status: leaveStatus,
             homeBranchId,
             source: "MANUAL",
-            remarks: `Approved leave: ${leave.reason}`,
+            remarks,
           });
       }
     }
