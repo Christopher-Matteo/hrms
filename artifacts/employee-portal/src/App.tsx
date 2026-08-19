@@ -1055,17 +1055,7 @@ export default function App() {
                 Salary & Documents
               </button>
 
-              <button
-                onClick={() => { setActiveTab("SUPPORT"); setMobileSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${
-                  activeTab === "SUPPORT"
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800"
-                }`}
-              >
-                <HelpCircle className="w-4 h-4" />
-                Support Ticket
-              </button>
+
 
               <button
                 onClick={() => { setActiveTab("SETTINGS"); setMobileSidebarOpen(false); }}
@@ -1408,91 +1398,7 @@ export default function App() {
               </div>
             )}
 
-            {activeTab === "SUPPORT" && (
-              <div className="space-y-6 animate-in fade-in duration-300">
-                <div>
-                  <h3 className="text-xl font-bold dark:text-white">Support & HR Tickets</h3>
-                  <p className="text-xs text-muted-foreground">Open requests for IT support, payroll discrepancies, or HR complaints</p>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Create Ticket */}
-                  <form onSubmit={handleCreateTicket} className="bg-white dark:bg-zinc-900 border rounded-2xl p-5 space-y-4 shadow-sm">
-                    <h4 className="font-extrabold text-sm dark:text-white uppercase tracking-wider border-b pb-2">File a Request</h4>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-zinc-500">Category</label>
-                      <select
-                        value={ticketForm.category}
-                        onChange={(e) => setTicketForm({ ...ticketForm, category: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-xl text-xs dark:bg-zinc-800"
-                      >
-                        <option value="hr">HR Request / Policy Query</option>
-                        <option value="it">IT Support / Credentials</option>
-                        <option value="payroll">Payroll / Salary Issue</option>
-                        <option value="maintenance">Hotel Maintenance Request</option>
-                        <option value="complaint">Internal Complaint</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-zinc-500">Subject</label>
-                      <input
-                        type="text"
-                        value={ticketForm.title}
-                        onChange={(e) => setTicketForm({ ...ticketForm, title: e.target.value })}
-                        placeholder="E.g. Access token issue"
-                        className="w-full px-3 py-2 border rounded-xl text-xs dark:bg-zinc-800"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-zinc-500">Description</label>
-                      <textarea
-                        value={ticketForm.description}
-                        onChange={(e) => setTicketForm({ ...ticketForm, description: e.target.value })}
-                        placeholder="Detail your request"
-                        rows={3}
-                        className="w-full px-3 py-2 border rounded-xl text-xs dark:bg-zinc-800"
-                        required
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="w-full py-2 bg-primary text-primary-foreground font-bold rounded-xl text-xs hover:opacity-90 transition"
-                    >
-                      Submit Ticket
-                    </button>
-                  </form>
-
-                  {/* Tickets List */}
-                  <div className="bg-white dark:bg-zinc-900 border rounded-2xl p-5 space-y-4 shadow-sm">
-                    <h4 className="font-extrabold text-sm dark:text-white uppercase tracking-wider border-b pb-2">Active Tickets</h4>
-                    <div className="space-y-2">
-                      {tickets.length > 0 ? (
-                        tickets.map((t) => (
-                          <div key={t.id} className="p-3 bg-muted/30 border rounded-xl flex justify-between items-center text-xs">
-                            <div>
-                              <p className="font-bold text-slate-800 dark:text-zinc-200">{t.title}</p>
-                              <p className="text-[10px] text-muted-foreground mt-0.5 capitalize">{t.category} · {t.description}</p>
-                            </div>
-                            <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[9px] ${
-                              t.status === "resolved" || t.status === "closed" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
-                            }`}>
-                              {t.status}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-xs text-muted-foreground text-center py-8">No tickets opened yet</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {activeTab === "SETTINGS" && (
               <div className="bg-white dark:bg-zinc-900 border rounded-2xl p-6 shadow-sm max-w-md space-y-6 animate-in fade-in duration-300">

@@ -23,8 +23,6 @@ import AnnouncementsPage from "@/pages/announcements";
 import ReportsPage from "@/pages/reports";
 import SettingsPage from "@/pages/settings";
 import AuditLogsPage from "@/pages/audit-logs";
-import SupportTicketsPage from "@/pages/supportTickets";
-import CorrectionsPage from "@/pages/corrections";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -70,8 +68,6 @@ function ProtectedRoutes() {
         <Route path="/payroll/:id" component={PayslipPage} />
         <Route path="/payroll" component={PayrollPage} />
         <Route path="/announcements" component={AnnouncementsPage} />
-        <Route path="/support-tickets" component={SupportTicketsPage} />
-        <Route path="/corrections" component={CorrectionsPage} />
         <Route path="/reports" component={ReportsPage} />
         <Route path="/settings" component={SettingsPage} />
         <Route path="/audit-logs" component={AuditLogsPage} />

@@ -39,8 +39,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Advances", href: "/advances", icon: CreditCard },
   { label: "Continue Duty", href: "/continue-duty", icon: Briefcase },
   { label: "Payroll", href: "/payroll", icon: DollarSign },
-  { label: "Corrections Requests", href: "/corrections", icon: ClipboardCheck, roles: ["super_admin", "hr_manager"] },
-  { label: "Support Tickets", href: "/support-tickets", icon: LifeBuoy, roles: ["super_admin", "hr_manager"] },
   { label: "Announcements", href: "/announcements", icon: Megaphone },
   { label: "Reports", href: "/reports", icon: BarChart3, roles: ["super_admin", "hr_manager"] },
   { label: "Audit Logs", href: "/audit-logs", icon: ScrollText, roles: ["super_admin"] },
