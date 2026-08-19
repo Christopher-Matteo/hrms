@@ -214,12 +214,21 @@ async function syncDraftPayroll(
 
   // Paid days: worked days, paid leaves, weekly offs, and public holidays
   const paidDays = presentDays + weeklyOffDays + holidayDays + leaveDays + 0.5 * halfDayCount;
-  const unpaidDays = totalDays - paidDays;
+  const unpaidDays = Math.max(0, totalDays - paidDays);
 
-  const absentDeductionRaw = dailySalary * unpaidDays;
-  const maxDeduction = basicSalary - (dailySalary * paidDays);
-  const absentDeduction = Number(Math.min(absentDeductionRaw, Math.max(0, maxDeduction)).toFixed(2));
-  const earnedSalary = Number((basicSalary - absentDeduction).toFixed(2));
+  const absentDeduction = Number((dailySalary * unpaidDays).toFixed(2));
+
+  // Calculate extra weekly off pay (if they worked on their weekly off)
+  const policyType = policy?.policyType ?? "one_day_per_week";
+  const isHousekeeping = emp.department?.toLowerCase() === "housekeeping";
+  let maxWeekoffs = 4;
+  if (policyType === "one_week_per_month" || policyType === "one_day_per_month" || isHousekeeping) {
+    maxWeekoffs = 1;
+  }
+  const unusedWeekoffs = Math.max(0, maxWeekoffs - weeklyOffDays);
+  const extraWeeklyOffPay = Number((unusedWeekoffs * dailySalary).toFixed(2));
+
+  const earnedSalary = Number((basicSalary - absentDeduction + extraWeeklyOffPay).toFixed(2));
   const payableDays = paidDays;
 
   const duties = await db.select().from(continueDutiesTable)
