@@ -533,9 +533,8 @@ router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, 
     return;
   }
 
-  // 2. Generate next limitDays in IST (en-CA YYYY-MM-DD format)
-  const isHousekeeping = emp.department?.toLowerCase() === "housekeeping" || emp.policyType === "one_week_per_month" || emp.policyType === "one_day_per_month";
-  const limitDays = isHousekeeping ? 1 : 4;
+  // 2. Generate next 1 day in IST (en-CA YYYY-MM-DD format) - Only show 1 upcoming shift
+  const limitDays = 1;
 
   const targetDates: string[] = [];
   for (let i = 1; i <= limitDays; i++) {
