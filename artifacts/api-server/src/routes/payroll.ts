@@ -220,9 +220,20 @@ async function syncDraftPayroll(
 
   // Calculate extra weekly off pay (if they worked on their weekly off)
   const policyType = policy?.policyType ?? "one_day_per_week";
+  const policyName = policy?.name?.toLowerCase() || "";
   const isHousekeeping = emp.department?.toLowerCase() === "housekeeping";
   let maxWeekoffs = 4;
-  if (policyType === "one_week_per_month" || policyType === "one_day_per_month" || isHousekeeping) {
+  if (policyName.includes("month-")) {
+    const match = policyName.match(/month-(\d+)/);
+    if (match) {
+      maxWeekoffs = parseInt(match[1], 10);
+    }
+  } else if (policyName.includes("week-")) {
+    const match = policyName.match(/week-(\d+)/);
+    if (match) {
+      maxWeekoffs = parseInt(match[1], 10) * 4;
+    }
+  } else if (policyType === "one_week_per_month" || policyType === "one_day_per_month" || isHousekeeping) {
     maxWeekoffs = 1;
   }
   const unusedWeekoffs = Math.max(0, maxWeekoffs - weeklyOffDays);

@@ -40,6 +40,22 @@ export function isDateWeeklyOff(dateStrOrObj: string | Date, policy: any): boole
 
   const policyType = policy.policyType;
   const dayOfMonth = dateObj.getDate();
+  const policyName = policy.name?.toLowerCase() || "";
+
+  if (policyName.includes("month-")) {
+    const match = policyName.match(/month-(\d+)/);
+    if (match) {
+      const limit = parseInt(match[1], 10);
+      return dayOfMonth <= (limit * 7);
+    }
+  }
+
+  if (policyName.includes("week-")) {
+    const match = policyName.match(/week-(\d+)/);
+    if (match) {
+      return true;
+    }
+  }
 
   if (policyType === "one_week_per_month" || policyType === "one_day_per_month") {
     // Only the first week's occurrence of the off days (day of month <= 7)

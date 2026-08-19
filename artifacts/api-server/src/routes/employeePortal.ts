@@ -664,18 +664,27 @@ router.post("/shifts/weekoff", requireAuth(), async (req: AuthenticatedRequest, 
 
   // 5. Check policy limits (only when marking a new weekoff)
   const policyType = policy?.policyType ?? "one_day_per_week";
+  const policyName = policy?.name?.toLowerCase() || "";
   const isHousekeeping = emp.department?.toLowerCase() === "housekeeping";
 
-  if (policyType === "one_week_per_month" || policyType === "one_day_per_month" || isHousekeeping) {
-    if (weeklyOffCount >= 1) {
-      res.status(400).json({ error: "You can only mark 1 week-off per month under your policy." });
-      return;
+  let limit = 4;
+  if (policyName.includes("month-")) {
+    const match = policyName.match(/month-(\d+)/);
+    if (match) {
+      limit = parseInt(match[1], 10);
     }
-  } else {
-    if (weeklyOffCount >= 4) {
-      res.status(400).json({ error: "You can only mark up to 4 week-offs per month under your policy." });
-      return;
+  } else if (policyName.includes("week-")) {
+    const match = policyName.match(/week-(\d+)/);
+    if (match) {
+      limit = parseInt(match[1], 10) * 4;
     }
+  } else if (policyType === "one_week_per_month" || policyType === "one_day_per_month" || isHousekeeping) {
+    limit = 1;
+  }
+
+  if (weeklyOffCount >= limit) {
+    res.status(400).json({ error: `You can only mark up to ${limit} week-offs per month under your policy.` });
+    return;
   }
 
   // 6. Create or update the attendance record for that date

@@ -1152,8 +1152,22 @@ export default function App() {
                     <h4 className="font-extrabold text-sm dark:text-white uppercase tracking-wider border-b pb-2">Upcoming Shifts</h4>
                     <div className="space-y-3">
                       {(() => {
-                        const isHousekeeping = employee?.department?.toLowerCase() === "housekeeping" || employee?.weeklyOffPolicy?.policyType === "one_week_per_month" || employee?.weeklyOffPolicy?.policyType === "one_day_per_month";
-                        const limit = isHousekeeping ? 1 : 4;
+                        let limit = 4;
+                        const policyName = employee?.weeklyOffPolicy?.name?.toLowerCase();
+                        if (policyName?.includes("month-")) {
+                          const match = policyName.match(/month-(\d+)/);
+                          if (match) {
+                            limit = parseInt(match[1], 10);
+                          }
+                        } else if (policyName?.includes("week-")) {
+                          const match = policyName.match(/week-(\d+)/);
+                          if (match) {
+                            limit = parseInt(match[1], 10) * 4;
+                          }
+                        } else {
+                          const isHousekeeping = employee?.department?.toLowerCase() === "housekeeping" || employee?.weeklyOffPolicy?.policyType === "one_week_per_month" || employee?.weeklyOffPolicy?.policyType === "one_day_per_month";
+                          limit = isHousekeeping ? 1 : 4;
+                        }
                         const weeklyOffCount = stats.weeklyOff || 0;
                         const limitReached = weeklyOffCount >= limit;
 

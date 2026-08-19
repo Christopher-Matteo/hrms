@@ -83,11 +83,8 @@ async function seed() {
 
   // Weekly Off Policies
   const insertedPolicies = await db.insert(weeklyOffPoliciesTable).values([
-    { name: "Sunday Off", policyType: "one_day_per_week", offDays: '["Sunday"]' },
-    { name: "Saturday & Sunday Off", policyType: "two_days_per_week", offDays: '["Saturday","Sunday"]' },
-    { name: "Rotational Off", policyType: "rotational", offDays: null },
-    { name: "Housekeeping Monthly Off (1 Sunday/Month)", policyType: "one_week_per_month", offDays: '["Sunday"]' },
-    { name: "Standard 4-Week Off (4 Sundays/Month)", policyType: "four_weeks_per_month", offDays: '["Sunday"]' },
+    { name: "month-4", policyType: "four_days_per_month", offDays: '["Sunday"]' },
+    { name: "month-1", policyType: "one_week_per_month", offDays: '["Sunday"]' },
   ]).returning();
 
   // Super Admin User
@@ -106,9 +103,8 @@ async function seed() {
   const porur = insertedBranches.find(b => b.name === "Porur")!;
   const ecrSignature = insertedBranches.find(b => b.name === "ECR Redfox Signature")!;
 
-  const sundayOff = insertedPolicies.find(p => p.name === "Sunday Off")!;
-  const hkPolicy = insertedPolicies.find(p => p.name === "Housekeeping Monthly Off (1 Sunday/Month)")!;
-  const standard4WkPolicy = insertedPolicies.find(p => p.name === "Standard 4-Week Off (4 Sundays/Month)")!;
+  const hkPolicy = insertedPolicies.find(p => p.name === "month-1")!;
+  const standard4WkPolicy = insertedPolicies.find(p => p.name === "month-4")!;
 
   const branchMap: Record<string, number> = {
     "Nungambakkam": nungambakkam.id,
