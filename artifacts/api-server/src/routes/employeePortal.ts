@@ -533,16 +533,14 @@ router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, 
     return;
   }
 
-  // 2. Generate next 1 day in IST (en-CA YYYY-MM-DD format) - Only show 1 upcoming shift
-  const limitDays = 1;
+  // 2. Generate today and tomorrow in IST (en-CA YYYY-MM-DD format)
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
-  const targetDates: string[] = [];
-  for (let i = 1; i <= limitDays; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    const dateStr = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-    targetDates.push(dateStr);
-  }
+  const targetDates = [todayStr, tomorrowStr];
 
   // 3. Fetch custom shift schedules for these dates
   const customSchedules = await db
@@ -565,23 +563,26 @@ router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, 
 
   const customScheduleMap = new Map(customSchedules.map(s => [s.date, s]));
 
-  // 4. Fetch marked weekly offs for these dates
-  const weekoffs = await db
-    .select({ date: attendanceTable.date })
+  // 4. Fetch marked weekly offs and attendance records for these dates
+  const attendanceRecords = await db
+    .select({ date: attendanceTable.date, status: attendanceTable.status })
     .from(attendanceTable)
     .where(
       and(
         eq(attendanceTable.employeeId, req.user.employeeId),
-        eq(attendanceTable.status, "weekly_off"),
         inArray(attendanceTable.date, targetDates)
       )
     );
-  const weekoffDates = new Set(weekoffs.map(w => w.date));
 
-  // 5. Build final list of 7 days
+  const weekoffDates = new Set(attendanceRecords.filter(r => r.status === "weekly_off").map(r => r.date));
+  const onDutyDates = new Set(attendanceRecords.filter(r => r.status !== "weekly_off").map(r => r.date));
+
+  // 5. Build final list of shifts
   const list = targetDates.map((dateStr, index) => {
     const custom = customScheduleMap.get(dateStr);
     const isWeekoff = weekoffDates.has(dateStr);
+    const isOnDuty = onDutyDates.has(dateStr);
+    const isToday = dateStr === todayStr;
 
     if (custom) {
       return {
@@ -592,6 +593,8 @@ router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, 
         startTime: custom.startTime,
         endTime: custom.endTime,
         isWeekoff,
+        isOnDuty,
+        isToday,
       };
     } else {
       // Fallback to default shift
@@ -603,6 +606,8 @@ router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, 
         startTime: emp.startTime || "09:00 AM",
         endTime: emp.endTime || "07:00 PM",
         isWeekoff,
+        isOnDuty,
+        isToday,
       };
     }
   });

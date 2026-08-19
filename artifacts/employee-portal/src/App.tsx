@@ -1172,44 +1172,73 @@ export default function App() {
                         const limitReached = weeklyOffCount >= limit;
 
                         return schedule.length > 0 ? (
-                          schedule.map((s) => (
-                            <div key={s.id} className="flex justify-between items-center text-sm py-1.5 border-b border-zinc-100 dark:border-zinc-800 last:border-0">
-                              <div className="flex flex-col">
-                                <span className="font-semibold text-slate-800 dark:text-zinc-200">{s.date}</span>
-                                <span className="text-xs text-zinc-500">
-                                  {s.isWeekoff ? (
-                                    <span className="text-blue-500 dark:text-blue-400 font-medium">Weekly Off (No Working)</span>
+                          schedule.map((s) => {
+                            const isForgotWeekoff = s.isToday && !s.isOnDuty && !s.isWeekoff;
+                            return (
+                              <div key={s.id} className={`flex justify-between items-center text-sm py-2 px-3 border rounded-xl last:border-0 transition-all ${
+                                isForgotWeekoff 
+                                  ? "bg-red-50/80 dark:bg-red-950/20 border-red-200 dark:border-red-900/50 my-1.5" 
+                                  : "border-transparent border-b-zinc-100 dark:border-b-zinc-800 rounded-none py-1.5 px-0"
+                              }`}>
+                                <div className="flex flex-col">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-slate-800 dark:text-zinc-200">
+                                      {s.date}
+                                    </span>
+                                    {s.isToday && (
+                                      <span className="text-[9px] bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 px-1 py-0.2 rounded font-bold uppercase border">
+                                        Today
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-xs text-zinc-500 mt-0.5 flex flex-col">
+                                    {s.isWeekoff ? (
+                                      <span className="text-blue-500 dark:text-blue-400 font-medium">Weekly Off (No Working)</span>
+                                    ) : s.isOnDuty ? (
+                                      <span className="text-zinc-400 font-medium line-through decoration-1 decoration-zinc-300">
+                                        {s.name} ({s.startTime} - {s.endTime})
+                                      </span>
+                                    ) : (
+                                      `${s.name} (${s.startTime} - {s.endTime})`
+                                    )}
+                                    {isForgotWeekoff && (
+                                      <span className="text-[10px] text-red-500 font-semibold animate-pulse mt-0.5">
+                                        Forgot to mark weekoff today?
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                                <div>
+                                  {s.isOnDuty ? (
+                                    <span className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 px-2 py-0.5 rounded font-bold uppercase border border-green-200 shadow-sm">
+                                      On Duty
+                                    </span>
+                                  ) : s.isWeekoff ? (
+                                    <button
+                                      onClick={() => handleMarkWeekoff(s.date)}
+                                      className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded font-bold uppercase border border-blue-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all cursor-pointer shadow-sm"
+                                      title="Click to remove weekly off"
+                                    >
+                                      Weekoff
+                                    </button>
                                   ) : (
-                                    `${s.name} (${s.startTime} - ${s.endTime})`
+                                    <button
+                                      onClick={() => !limitReached && handleMarkWeekoff(s.date)}
+                                      disabled={limitReached}
+                                      className={`text-[10px] px-2 py-0.5 rounded font-bold transition-all border shadow-sm ${
+                                        limitReached
+                                          ? "bg-zinc-100 text-zinc-400 border-zinc-200 cursor-not-allowed opacity-50"
+                                          : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-500 hover:text-white hover:border-blue-500"
+                                      }`}
+                                      title={limitReached ? `Monthly limit of ${limit} week-off(s) reached` : "Mark as Weekoff"}
+                                    >
+                                      Weekoff
+                                    </button>
                                   )}
-                                </span>
+                                </div>
                               </div>
-                              <div>
-                                {s.isWeekoff ? (
-                                  <button
-                                    onClick={() => handleMarkWeekoff(s.date)}
-                                    className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded font-bold uppercase border border-blue-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all cursor-pointer"
-                                    title="Click to remove weekly off"
-                                  >
-                                    Weekoff
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => !limitReached && handleMarkWeekoff(s.date)}
-                                    disabled={limitReached}
-                                    className={`text-[10px] px-2 py-0.5 rounded font-bold transition-all border ${
-                                      limitReached
-                                        ? "bg-zinc-100 text-zinc-400 border-zinc-200 cursor-not-allowed opacity-50 blur-[0.5px]"
-                                        : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-500 hover:text-white hover:border-blue-500"
-                                    }`}
-                                    title={limitReached ? `Monthly limit of ${limit} week-off(s) reached` : "Mark as Weekoff"}
-                                  >
-                                    Weekoff
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          ))
+                            );
+                          })
                         ) : (
                           <p className="text-xs text-muted-foreground">No upcoming shifts assigned</p>
                         );
