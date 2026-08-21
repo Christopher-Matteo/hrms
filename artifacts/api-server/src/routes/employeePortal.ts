@@ -181,17 +181,19 @@ router.get("/attendance/history", requireAuth(), async (req: AuthenticatedReques
   const { filter } = req.query; // 'weekly' | 'monthly' | 'yearly'
   let dateCondition = sql`1=1`;
 
-  const today = new Date();
+  const now = new Date();
+  const todayStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); // YYYY-MM-DD
+
   if (filter === "weekly") {
-    const lastWeek = new Date();
-    lastWeek.setDate(today.getDate() - 7);
-    dateCondition = sql`${attendanceTable.date} >= ${lastWeek.toISOString().split("T")[0]}`;
+    const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const lastWeekStr = lastWeek.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    dateCondition = sql`${attendanceTable.date} >= ${lastWeekStr}`;
   } else if (filter === "monthly") {
-    const currentMonth = today.toISOString().slice(0, 7); // YYYY-MM
-    dateCondition = sql`to_char(${attendanceTable.date}, 'YYYY-MM') = ${currentMonth}`;
+    const currentMonth = todayStr.slice(0, 7); // YYYY-MM
+    dateCondition = sql`${attendanceTable.date}::text like ${currentMonth + '%'}`;
   } else if (filter === "yearly") {
-    const currentYear = today.getFullYear().toString(); // YYYY
-    dateCondition = sql`to_char(${attendanceTable.date}, 'YYYY') = ${currentYear}`;
+    const currentYear = todayStr.slice(0, 4); // YYYY
+    dateCondition = sql`${attendanceTable.date}::text like ${currentYear + '%'}`;
   }
 
   const history = await db
@@ -504,6 +506,39 @@ router.post("/announcements/:id/read", requireAuth(), async (req: AuthenticatedR
 // 5. SHIFTS ENDPOINTS
 // ----------------------------------------------------
 
+// Helper to calculate exact weekly off limit per month based on policy
+export function getWeeklyOffLimit(emp: any, policy: any) {
+  const policyType = policy?.policyType ?? emp?.policyType;
+  const policyName = policy?.name?.toLowerCase() || emp?.policyName?.toLowerCase() || "";
+  const isHousekeeping = emp?.department?.toLowerCase() === "housekeeping";
+
+  if (policyName.includes("month-")) {
+    const match = policyName.match(/month-(\d+)/);
+    if (match) return parseInt(match[1], 10);
+  }
+  if (policyName.includes("week-")) {
+    const match = policyName.match(/week-(\d+)/);
+    if (match) return parseInt(match[1], 10) * 4;
+  }
+
+  if (policyType === "two_days_per_week") {
+    return 8;
+  }
+  if (policyType === "one_day_per_week" || policyType === "four_days_per_month" || policyType === "four_weeks_per_month") {
+    return 4;
+  }
+  if (policyType === "three_weeks_per_month") {
+    return 3;
+  }
+  if (policyType === "two_weeks_per_month") {
+    return 2;
+  }
+  if (policyType === "one_week_per_month" || policyType === "one_day_per_month" || isHousekeeping) {
+    return 1;
+  }
+  return 4; // Default fallback
+}
+
 // Get schedule
 router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, res): Promise<void> => {
   if (!req.user?.employeeId) {
@@ -534,13 +569,16 @@ router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, 
   }
 
   // 2. Generate today and tomorrow in IST (en-CA YYYY-MM-DD format)
-  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const now = new Date();
+  const todayStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  // Timezone-safe addition of 24 hours to generate tomorrowStr and dayAfterTomorrowStr
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
   const tomorrowStr = tomorrow.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const dayAfterTomorrow = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+  const dayAfterTomorrowStr = dayAfterTomorrow.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
-  const targetDates = [todayStr, tomorrowStr];
+  const targetDates = [todayStr, tomorrowStr, dayAfterTomorrowStr];
 
   // 3. Fetch custom shift schedules for these dates
   const customSchedules = await db
@@ -668,24 +706,7 @@ router.post("/shifts/weekoff", requireAuth(), async (req: AuthenticatedRequest, 
   }
 
   // 5. Check policy limits (only when marking a new weekoff)
-  const policyType = policy?.policyType ?? "one_day_per_week";
-  const policyName = policy?.name?.toLowerCase() || "";
-  const isHousekeeping = emp.department?.toLowerCase() === "housekeeping";
-
-  let limit = 4;
-  if (policyName.includes("month-")) {
-    const match = policyName.match(/month-(\d+)/);
-    if (match) {
-      limit = parseInt(match[1], 10);
-    }
-  } else if (policyName.includes("week-")) {
-    const match = policyName.match(/week-(\d+)/);
-    if (match) {
-      limit = parseInt(match[1], 10) * 4;
-    }
-  } else if (policyType === "one_week_per_month" || policyType === "one_day_per_month" || isHousekeeping) {
-    limit = 1;
-  }
+  const limit = getWeeklyOffLimit(emp, policy);
 
   if (weeklyOffCount >= limit) {
     res.status(400).json({ error: `You can only mark up to ${limit} week-offs per month under your policy.` });

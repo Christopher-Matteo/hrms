@@ -1132,22 +1132,30 @@ export default function App() {
                     <h4 className="font-extrabold text-sm dark:text-white uppercase tracking-wider border-b pb-2">Upcoming Shifts</h4>
                     <div className="space-y-3">
                       {(() => {
+                        const policy = employee?.weeklyOffPolicy;
+                        const policyType = policy?.policyType;
+                        const policyName = policy?.name?.toLowerCase() || "";
+                        const isHousekeeping = employee?.department?.toLowerCase() === "housekeeping";
+
                         let limit = 4;
-                        const policyName = employee?.weeklyOffPolicy?.name?.toLowerCase();
-                        if (policyName?.includes("month-")) {
+                        if (policyName.includes("month-")) {
                           const match = policyName.match(/month-(\d+)/);
-                          if (match) {
-                            limit = parseInt(match[1], 10);
-                          }
-                        } else if (policyName?.includes("week-")) {
+                          if (match) limit = parseInt(match[1], 10);
+                        } else if (policyName.includes("week-")) {
                           const match = policyName.match(/week-(\d+)/);
-                          if (match) {
-                            limit = parseInt(match[1], 10) * 4;
-                          }
-                        } else {
-                          const isHousekeeping = employee?.department?.toLowerCase() === "housekeeping" || employee?.weeklyOffPolicy?.policyType === "one_week_per_month" || employee?.weeklyOffPolicy?.policyType === "one_day_per_month";
-                          limit = isHousekeeping ? 1 : 4;
+                          if (match) limit = parseInt(match[1], 10) * 4;
+                        } else if (policyType === "two_days_per_week") {
+                          limit = 8;
+                        } else if (policyType === "one_day_per_week" || policyType === "four_days_per_month" || policyType === "four_weeks_per_month") {
+                          limit = 4;
+                        } else if (policyType === "three_weeks_per_month") {
+                          limit = 3;
+                        } else if (policyType === "two_weeks_per_month") {
+                          limit = 2;
+                        } else if (policyType === "one_week_per_month" || policyType === "one_day_per_month" || isHousekeeping) {
+                          limit = 1;
                         }
+
                         const weeklyOffCount = stats.weeklyOff || 0;
                         const limitReached = weeklyOffCount >= limit;
 
@@ -1207,12 +1215,12 @@ export default function App() {
                                       disabled={limitReached}
                                       className={`text-[10px] px-2 py-0.5 rounded font-bold transition-all border shadow-sm ${
                                         limitReached
-                                          ? "bg-zinc-100 text-zinc-400 border-zinc-200 cursor-not-allowed opacity-50"
+                                          ? "bg-zinc-100 text-zinc-400 border-zinc-200 cursor-not-allowed opacity-75"
                                           : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-500 hover:text-white hover:border-blue-500"
                                       }`}
                                       title={limitReached ? `Monthly limit of ${limit} week-off(s) reached` : "Mark as Weekoff"}
                                     >
-                                      Weekoff
+                                      {limitReached ? "Limit Reached" : "Weekoff"}
                                     </button>
                                   )}
                                 </div>
