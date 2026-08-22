@@ -4,11 +4,18 @@ import { eq, and } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-async function formatAdvance(a: typeof advancesTable.$inferSelect) {
-  const [emp] = await db
-    .select({ firstName: employeesTable.firstName, lastName: employeesTable.lastName })
-    .from(employeesTable)
-    .where(eq(employeesTable.id, a.employeeId));
+async function formatAdvance(
+  a: typeof advancesTable.$inferSelect,
+  preFetchedEmp?: { firstName: string; lastName: string } | null
+) {
+  let emp = preFetchedEmp;
+  if (emp === undefined) {
+    const [dbEmp] = await db
+      .select({ firstName: employeesTable.firstName, lastName: employeesTable.lastName })
+      .from(employeesTable)
+      .where(eq(employeesTable.id, a.employeeId));
+    emp = dbEmp ?? null;
+  }
 
   return {
     id: a.id,
@@ -31,11 +38,32 @@ router.get("/advances", async (req, res): Promise<void> => {
   if (employeeId) conditions.push(eq(advancesTable.employeeId, Number(employeeId)));
   if (status) conditions.push(eq(advancesTable.status, String(status)));
 
-  let query = db.select().from(advancesTable).$dynamic();
-  if (conditions.length > 0) query = query.where(and(...conditions));
-  const advances = await query.orderBy(advancesTable.createdAt);
+  let query = db
+    .select({
+      advance: advancesTable,
+      employeeFirstName: employeesTable.firstName,
+      employeeLastName: employeesTable.lastName,
+    })
+    .from(advancesTable)
+    .leftJoin(employeesTable, eq(advancesTable.employeeId, employeesTable.id))
+    .$dynamic();
 
-  const result = await Promise.all(advances.map(formatAdvance));
+  if (conditions.length > 0) query = query.where(and(...conditions));
+  const rows = await query.orderBy(advancesTable.createdAt);
+
+  const result = await Promise.all(
+    rows.map((r) =>
+      formatAdvance(
+        r.advance,
+        r.employeeFirstName && r.employeeLastName
+          ? {
+              firstName: r.employeeFirstName,
+              lastName: r.employeeLastName,
+            }
+          : null
+      )
+    )
+  );
   res.json(result);
 });
 

@@ -977,6 +977,50 @@ export const GetLeaveRequestResponse = zod.object({
 
 
 /**
+ * @summary Update a leave request
+ */
+export const UpdateLeaveRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateLeaveRequestBody = zod.object({
+  "employeeId": zod.number(),
+  "leaveType": zod.string(),
+  "startDate": zod.string(),
+  "endDate": zod.string(),
+  "reason": zod.string()
+})
+
+export const UpdateLeaveRequestResponse = zod.object({
+  "id": zod.number(),
+  "employeeId": zod.number(),
+  "employeeName": zod.string().nullish(),
+  "employeeCode": zod.string().nullish(),
+  "leaveType": zod.enum(['casual', 'sick', 'earned', 'emergency', 'loss_of_pay', 'maternity', 'paternity']),
+  "startDate": zod.string(),
+  "endDate": zod.string(),
+  "days": zod.number().optional(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "reason": zod.string(),
+  "managerComment": zod.string().nullish(),
+  "approvedById": zod.number().nullish(),
+  "createdAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Delete/cancel a leave request
+ */
+export const DeleteLeaveRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteLeaveRequestResponse = zod.object({
+  "success": zod.boolean().optional()
+})
+
+
+/**
  * @summary Approve a leave request
  */
 export const ApproveLeaveParams = zod.object({

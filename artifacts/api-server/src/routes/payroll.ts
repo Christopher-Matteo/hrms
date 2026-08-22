@@ -319,19 +319,32 @@ async function syncDraftPayroll(
   return record;
 }
 
-async function formatPayroll(p: typeof payrollTable.$inferSelect) {
+async function formatPayroll(
+  p: typeof payrollTable.$inferSelect,
+  preFetchedEmp?: { firstName: string; lastName: string; employeeId: string; department: string; branchId: number | null } | null,
+  preFetchedBranchName?: string | null
+) {
   // Sync if draft
   const record = p.status === "draft" ? await syncDraftPayroll(p) : p;
 
-  const [emp] = await db
-    .select({ firstName: employeesTable.firstName, lastName: employeesTable.lastName, employeeId: employeesTable.employeeId, department: employeesTable.department, branchId: employeesTable.branchId })
-    .from(employeesTable)
-    .where(eq(employeesTable.id, record.employeeId));
+  let emp = preFetchedEmp;
+  let branchName = preFetchedBranchName;
 
-  let branchName: string | null = null;
-  if (emp?.branchId) {
-    const [branch] = await db.select({ name: branchesTable.name }).from(branchesTable).where(eq(branchesTable.id, emp.branchId));
-    branchName = branch?.name ?? null;
+  if (emp === undefined) {
+    const [dbEmp] = await db
+      .select({ firstName: employeesTable.firstName, lastName: employeesTable.lastName, employeeId: employeesTable.employeeId, department: employeesTable.department, branchId: employeesTable.branchId })
+      .from(employeesTable)
+      .where(eq(employeesTable.id, record.employeeId));
+    emp = dbEmp ?? null;
+  }
+
+  if (branchName === undefined) {
+    if (emp?.branchId) {
+      const [branch] = await db.select({ name: branchesTable.name }).from(branchesTable).where(eq(branchesTable.id, emp.branchId));
+      branchName = branch?.name ?? null;
+    } else {
+      branchName = null;
+    }
   }
 
   return {
@@ -374,11 +387,41 @@ router.get("/payroll", async (req, res): Promise<void> => {
   if (employeeId) conditions.push(eq(payrollTable.employeeId, Number(employeeId)));
   if (status) conditions.push(eq(payrollTable.status, String(status)));
 
-  let query = db.select().from(payrollTable).$dynamic();
-  if (conditions.length > 0) query = query.where(and(...conditions));
-  const records = await query.orderBy(payrollTable.createdAt);
+  let query = db
+    .select({
+      payroll: payrollTable,
+      employeeFirstName: employeesTable.firstName,
+      employeeLastName: employeesTable.lastName,
+      employeeCode: employeesTable.employeeId,
+      department: employeesTable.department,
+      branchId: employeesTable.branchId,
+      branchName: branchesTable.name,
+    })
+    .from(payrollTable)
+    .leftJoin(employeesTable, eq(payrollTable.employeeId, employeesTable.id))
+    .leftJoin(branchesTable, eq(employeesTable.branchId, branchesTable.id))
+    .$dynamic();
 
-  const result = await Promise.all(records.map(formatPayroll));
+  if (conditions.length > 0) query = query.where(and(...conditions));
+  const rows = await query.orderBy(payrollTable.createdAt);
+
+  const result = await Promise.all(
+    rows.map((r) =>
+      formatPayroll(
+        r.payroll,
+        r.employeeFirstName && r.employeeLastName && r.employeeCode && r.department
+          ? {
+              firstName: r.employeeFirstName,
+              lastName: r.employeeLastName,
+              employeeId: r.employeeCode,
+              department: r.department,
+              branchId: r.branchId,
+            }
+          : null,
+        r.branchName
+      )
+    )
+  );
   res.json(result);
 });
 

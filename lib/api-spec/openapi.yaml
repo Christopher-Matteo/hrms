@@ -882,6 +882,48 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LeaveRequest"
+    put:
+      operationId: updateLeaveRequest
+      tags: [leaves]
+      summary: Update a leave request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeaveInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+    delete:
+      operationId: deleteLeaveRequest
+      tags: [leaves]
+      summary: Delete/cancel a leave request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Leave request deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
 
   /leaves/{id}/approve:
     patch:

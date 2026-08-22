@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, attendanceTable, employeesTable, auditLogsTable, attendanceCorrectionsTable, attendanceCorrectionHistoryTable, branchesTable, shiftsTable, holidaysTable, weeklyOffPoliciesTable, shiftScheduleTable } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { isEmployeeWeeklyOff } from "../lib/weeklyOffHelper";
 
 const router: IRouter = Router();
@@ -97,6 +98,9 @@ function formatRecord(
 router.get("/attendance", async (req, res): Promise<void> => {
   const { employeeId, branchId, date, month, status } = req.query;
 
+  const homeBranchTable = alias(branchesTable, "home_branch");
+  const attendanceBranchTable = alias(branchesTable, "attendance_branch");
+
   const conditions = [];
   if (employeeId) conditions.push(eq(attendanceTable.employeeId, Number(employeeId)));
   if (date) conditions.push(eq(attendanceTable.date, String(date)));
@@ -107,38 +111,32 @@ router.get("/attendance", async (req, res): Promise<void> => {
   // as date queries require us to load all records to compute virtual absences.
   if (status && !date) conditions.push(eq(attendanceTable.status, String(status)));
 
-  let query = db.select().from(attendanceTable).$dynamic();
-  if (conditions.length > 0) query = query.where(and(...conditions));
-  const records = await query.orderBy(attendanceTable.date);
-
-  // Enrich with employee names and branch names
-  const result = await Promise.all(
-    records.map(async (r) => {
-      const [emp] = await db
-        .select({ firstName: employeesTable.firstName, lastName: employeesTable.lastName, employeeId: employeesTable.employeeId })
-        .from(employeesTable)
-        .where(eq(employeesTable.id, r.employeeId));
-
-      let homeBranchName = null;
-      if (r.homeBranchId) {
-        const [hb] = await db.select({ name: branchesTable.name }).from(branchesTable).where(eq(branchesTable.id, r.homeBranchId));
-        homeBranchName = hb?.name ?? null;
-      }
-
-      let attendanceBranchName = null;
-      if (r.attendanceBranchId) {
-        const [ab] = await db.select({ name: branchesTable.name }).from(branchesTable).where(eq(branchesTable.id, r.attendanceBranchId));
-        attendanceBranchName = ab?.name ?? null;
-      }
-
-      return formatRecord(
-        r,
-        emp ? `${emp.firstName} ${emp.lastName}` : null,
-        emp?.employeeId ?? null,
-        homeBranchName,
-        attendanceBranchName
-      );
+  let query = db
+    .select({
+      attendance: attendanceTable,
+      employeeFirstName: employeesTable.firstName,
+      employeeLastName: employeesTable.lastName,
+      employeeCode: employeesTable.employeeId,
+      homeBranchName: homeBranchTable.name,
+      attendanceBranchName: attendanceBranchTable.name,
     })
+    .from(attendanceTable)
+    .leftJoin(employeesTable, eq(attendanceTable.employeeId, employeesTable.id))
+    .leftJoin(homeBranchTable, eq(attendanceTable.homeBranchId, homeBranchTable.id))
+    .leftJoin(attendanceBranchTable, eq(attendanceTable.attendanceBranchId, attendanceBranchTable.id))
+    .$dynamic();
+
+  if (conditions.length > 0) query = query.where(and(...conditions));
+  const rows = await query.orderBy(attendanceTable.date);
+
+  const result = rows.map((r) =>
+    formatRecord(
+      r.attendance,
+      r.employeeFirstName && r.employeeLastName ? `${r.employeeFirstName} ${r.employeeLastName}` : null,
+      r.employeeCode,
+      r.homeBranchName,
+      r.attendanceBranchName
+    )
   );
 
   let finalResult = result;

@@ -874,6 +874,10 @@ status?: string | null;
 branchId?: number | null;
 };
 
+export type DeleteLeaveRequest200 = {
+  success?: boolean;
+};
+
 export type GetAdvancesParams = {
 /**
  * @nullable

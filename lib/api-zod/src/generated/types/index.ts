@@ -31,6 +31,7 @@ export * from './continueDuty';
 export * from './continueDutyInput';
 export * from './continueDutyUpdate';
 export * from './dashboardStats';
+export * from './deleteLeaveRequest200';
 export * from './department';
 export * from './departmentDistributionPoint';
 export * from './departmentInput';
