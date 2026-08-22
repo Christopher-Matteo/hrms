@@ -162,7 +162,7 @@ router.get("/attendance", async (req, res): Promise<void> => {
     if (isPastDate || isToday) {
       const holidays = await db.select().from(holidaysTable);
       const policies = await db.select().from(weeklyOffPoliciesTable);
-      const existingEmployeeIds = new Set(records.map(r => r.employeeId));
+      const existingEmployeeIds = new Set(result.map(r => r.employeeId));
       const virtualRecords: any[] = [];
 
       for (const emp of activeEmployees) {
