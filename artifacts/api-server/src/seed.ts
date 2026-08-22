@@ -227,8 +227,95 @@ async function seed() {
     });
   }
 
-
-
+  // Seed attendance data for the last 14 days
+  console.log("Seeding attendance records for the last 14 days...");
+  const attendanceToInsert = [];
+  const todayDate = new Date();
+  
+  for (let i = 14; i >= 0; i--) {
+    const d = new Date(todayDate.getTime() - i * 24 * 60 * 60 * 1000);
+    const dateStr = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const dayOfWeek = d.toLocaleDateString("en-US", { weekday: "long" });
+    
+    for (const emp of insertedEmps) {
+      // Determine status
+      let status = "present";
+      let checkIn: string | null = "08:55 AM";
+      let checkOut: string | null = "06:05 PM";
+      let workingHours: string | null = "8.1";
+      let lateMinutes = 0;
+      let overtimeHours: string | null = "0.0";
+      
+      if (dayOfWeek === "Sunday") {
+        status = "weekly_off";
+        checkIn = null;
+        checkOut = null;
+        workingHours = null;
+        lateMinutes = 0;
+        overtimeHours = null;
+      } else {
+        // Add some random variation
+        const rand = Math.random();
+        if (rand < 0.05) {
+          // Absent
+          status = "absent";
+          checkIn = null;
+          checkOut = null;
+          workingHours = null;
+          lateMinutes = 0;
+          overtimeHours = null;
+        } else if (rand < 0.1) {
+          // Late
+          status = "late";
+          checkIn = "09:35 AM";
+          checkOut = "06:00 PM";
+          workingHours = "7.4";
+          lateMinutes = 35;
+          overtimeHours = "0.0";
+        } else if (rand < 0.15) {
+          // Leave
+          status = Math.random() > 0.5 ? "paid_leave" : "sick_leave";
+          checkIn = null;
+          checkOut = null;
+          workingHours = null;
+          lateMinutes = 0;
+          overtimeHours = null;
+        } else if (rand < 0.25) {
+          // Overtime
+          status = "overtime";
+          checkIn = "08:50 AM";
+          checkOut = "08:15 PM";
+          workingHours = "10.4";
+          lateMinutes = 0;
+          overtimeHours = "2.0";
+        }
+      }
+      
+      attendanceToInsert.push({
+        employeeId: emp.id,
+        date: dateStr,
+        status,
+        checkIn,
+        checkOut,
+        workingHours,
+        lateMinutes,
+        overtimeHours,
+        homeBranchId: emp.branchId,
+        attendanceBranchId: emp.branchId,
+        faceVerificationStatus: status !== "absent" && status !== "weekly_off" && !status.endsWith("leave") ? "Verified" : "Not Verified",
+        photoVerified: status !== "absent" && status !== "weekly_off" && !status.endsWith("leave"),
+        source: "KIOSK"
+      });
+    }
+  }
+  
+  if (attendanceToInsert.length > 0) {
+    // Insert in batches of 100 to avoid query parameter limit issues
+    for (let i = 0; i < attendanceToInsert.length; i += 100) {
+      const batch = attendanceToInsert.slice(i, i + 100);
+      await db.insert(attendanceTable).values(batch);
+    }
+  }
 
   // Leave requests
   const existingLeaves = await db.select().from(leavesTable).limit(1);
