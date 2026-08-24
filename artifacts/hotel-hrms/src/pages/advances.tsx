@@ -135,7 +135,6 @@ export default function AdvancesPage() {
                   <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground">Amount</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground">Remaining</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Reason</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-muted-foreground w-28">Status</th>
                   {canManage && <th className="text-center px-4 py-3 text-xs font-semibold text-muted-foreground w-40">Actions</th>}
                 </tr>
               </thead>
@@ -147,11 +146,6 @@ export default function AdvancesPage() {
                     <td className="px-4 py-3 text-right font-medium">₹{Number(a.amount).toLocaleString("en-IN")}</td>
                     <td className="px-4 py-3 text-right text-muted-foreground">₹{Number(a.remainingBalance).toLocaleString("en-IN")}</td>
                     <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">{a.reason}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={cn("px-2 py-0.5 text-[10px] font-bold rounded-full uppercase border", STATUS_COLORS[a.status] ?? "bg-zinc-100 text-zinc-700 border-zinc-200")}>
-                        {a.status}
-                      </span>
-                    </td>
                     {canManage && (
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
@@ -179,7 +173,7 @@ export default function AdvancesPage() {
                   </tr>
                 ))}
                 {!advances?.length && (
-                  <tr><td colSpan={canManage ? 7 : 6} className="px-4 py-12 text-center text-muted-foreground">
+                  <tr><td colSpan={canManage ? 6 : 5} className="px-4 py-12 text-center text-muted-foreground">
                     <CreditCard className="w-8 h-8 mx-auto mb-2" />
                     No advance requests found
                   </td></tr>
