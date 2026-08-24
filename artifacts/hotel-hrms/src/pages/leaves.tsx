@@ -349,7 +349,6 @@ export default function LeavesPage() {
                       <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Dates</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-muted-foreground">Days</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Reason</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground">Status</th>
                       {canManage && <th className="text-center px-4 py-3 text-xs font-semibold text-muted-foreground w-40">Actions</th>}
                     </tr>
                   </thead>
@@ -364,15 +363,15 @@ export default function LeavesPage() {
                           <div>{l.leaveType.replace(/_/g, " ")}</div>
                           <div className="text-[10px] flex items-center gap-1.5 mt-1 font-semibold">
                             <span className={cn(
-                              "px-1.5 py-0.2 rounded border",
-                              l.informed === "informed" ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-orange-50 text-orange-600 border-orange-100"
-                            )}>
+                               "px-1.5 py-0.2 rounded border",
+                               l.informed === "informed" ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-orange-50 text-orange-600 border-orange-100"
+                             )}>
                               {l.informed === "informed" ? "Informed" : "Uninformed"}
                             </span>
                             <span className={cn(
-                              "px-1.5 py-0.2 rounded border",
-                              l.salaryCalculate === "calculate" ? "bg-green-50 text-green-600 border-green-100" : "bg-red-50 text-red-700 border-red-100"
-                            )}>
+                               "px-1.5 py-0.2 rounded border",
+                               l.salaryCalculate === "calculate" ? "bg-green-50 text-green-600 border-green-100" : "bg-red-50 text-red-700 border-red-100"
+                             )}>
                               {l.salaryCalculate === "calculate" ? "Paid" : "Unpaid"}
                             </span>
                           </div>
@@ -380,36 +379,9 @@ export default function LeavesPage() {
                         <td className="px-4 py-3 text-muted-foreground">{l.startDate} → {l.endDate}</td>
                         <td className="px-4 py-3 text-center font-medium">{l.days}</td>
                         <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">{l.reason}</td>
-                        <td className="px-4 py-3">
-                          <span className={cn("px-2 py-0.5 text-[11px] font-bold rounded-full border", STATUS_COLORS[l.status] ?? "bg-zinc-100 text-zinc-700 border-zinc-200")}>
-                            {l.status}
-                          </span>
-                        </td>
                         {canManage && (
                           <td className="px-4 py-3 text-center">
                             <div className="flex items-center justify-center gap-1.5">
-                              {l.status === "pending" && (
-                                <>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="w-7 h-7 text-green-600 hover:text-green-700 hover:bg-green-50 border border-transparent hover:border-green-200"
-                                    onClick={() => handleApprove(l.id)}
-                                    title="Approve Leave"
-                                  >
-                                    <Check className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="w-7 h-7 text-red-600 hover:text-red-700 hover:bg-red-50 border border-transparent hover:border-red-200"
-                                    onClick={() => handleReject(l.id)}
-                                    title="Reject Leave"
-                                  >
-                                    <X className="w-4 h-4" />
-                                  </Button>
-                                </>
-                              )}
                               <Button
                                 size="icon"
                                 variant="ghost"
@@ -434,7 +406,7 @@ export default function LeavesPage() {
                       </tr>
                     ))}
                     {!leaves?.length && (
-                      <tr><td colSpan={canManage ? 7 : 6} className="px-4 py-12 text-center text-muted-foreground">
+                      <tr><td colSpan={canManage ? 6 : 5} className="px-4 py-12 text-center text-muted-foreground">
                         <Calendar className="w-8 h-8 mx-auto mb-2" />
                         No leave requests found
                       </td></tr>

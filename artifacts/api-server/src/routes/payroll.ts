@@ -350,6 +350,13 @@ export async function formatPayroll(
     }
   }
 
+  const approvedAdvances = await db.select().from(advancesTable)
+    .where(and(eq(advancesTable.employeeId, record.employeeId), eq(advancesTable.status, "approved")));
+  const totalAdvanceBalance = approvedAdvances.reduce((sum, a) => sum + Number(a.remainingBalance), 0);
+  const remainingAdvanceBalance = record.status === "paid" 
+    ? totalAdvanceBalance 
+    : Math.max(0, totalAdvanceBalance - Number(record.advanceDeduction));
+
   return {
     id: record.id,
     employeeId: record.employeeId,
@@ -377,6 +384,7 @@ export async function formatPayroll(
     grossSalary: Number(record.grossSalary),
     totalDeductions: Number(record.totalDeductions),
     netSalary: Number(record.netSalary),
+    remainingAdvanceBalance,
     status: record.status,
     createdAt: record.createdAt.toISOString(),
   };
