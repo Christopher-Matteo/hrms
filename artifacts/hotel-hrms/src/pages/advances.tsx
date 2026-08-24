@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, CreditCard, Check, X, Pencil, Trash2 } from "lucide-react";
+import { Plus, CreditCard, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 
@@ -76,21 +76,7 @@ export default function AdvancesPage() {
     });
   }
 
-  function handleApprove(id: number) {
-    updateAdvance.mutate({ id, data: { status: "approved" } as any }, {
-      onSuccess: () => {
-        refetch();
-      }
-    });
-  }
 
-  function handleReject(id: number) {
-    updateAdvance.mutate({ id, data: { status: "rejected" } as any }, {
-      onSuccess: () => {
-        refetch();
-      }
-    });
-  }
 
   const canManage = ["super_admin", "hr_manager"].includes(user?.role ?? "");
   const set = (f: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(prev => ({ ...prev, [f]: e.target.value }));
@@ -169,28 +155,6 @@ export default function AdvancesPage() {
                     {canManage && (
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
-                          {a.status === "pending" && (
-                            <>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="w-7 h-7 text-green-600 hover:text-green-700 hover:bg-green-50 border border-transparent hover:border-green-200"
-                                onClick={() => handleApprove(a.id)}
-                                title="Approve Advance"
-                              >
-                                <Check className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="w-7 h-7 text-red-600 hover:text-red-700 hover:bg-red-50 border border-transparent hover:border-red-200"
-                                onClick={() => handleReject(a.id)}
-                                title="Reject Advance"
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </>
-                          )}
                           <Button
                             size="icon"
                             variant="ghost"
