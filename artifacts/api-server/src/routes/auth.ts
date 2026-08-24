@@ -167,8 +167,8 @@ router.post("/auth/register-employee", async (req, res): Promise<void> => {
     return;
   }
 
-  if (password.length < 6) {
-    res.status(400).json({ error: "Password must be at least 6 characters long." });
+  if (password.length < 4) {
+    res.status(400).json({ error: "Password must be at least 4 characters long." });
     return;
   }
 
@@ -565,8 +565,8 @@ router.post("/auth/reset-password", async (req, res): Promise<void> => {
     return;
   }
 
-  if (password.length < 6) {
-    res.status(400).json({ error: "Password must be at least 6 characters long." });
+  if (password.length < 4) {
+    res.status(400).json({ error: "Password must be at least 4 characters long." });
     return;
   }
 

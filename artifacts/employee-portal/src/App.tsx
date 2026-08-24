@@ -826,7 +826,7 @@ export default function App() {
                   <form onSubmit={handleSignup} className="space-y-4">
                     <div className="space-y-3">
                       <div className="space-y-1">
-                        <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Password (Min 6 characters)</label>
+                        <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Password (Min 4 characters)</label>
                         <input
                           type="password"
                           value={passwdInput}
@@ -849,7 +849,7 @@ export default function App() {
 
                     <button
                       type="submit"
-                      disabled={authLoading || passwdInput.length < 6}
+                      disabled={authLoading || passwdInput.length < 4}
                       className="w-full py-3 bg-primary text-primary-foreground font-bold rounded-xl text-sm hover:opacity-90 transition"
                     >
                       {authLoading ? "Saving..." : "Create credentials & Sign In"}

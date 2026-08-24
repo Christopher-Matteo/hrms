@@ -81,7 +81,7 @@ export default function EmployeeDetailPage() {
   }
 
   const handleSetPassword = async () => {
-    if (!manualPassword || manualPassword.length < 6) return;
+    if (!manualPassword || manualPassword.length < 4) return;
     setPasswordLoading(true);
     setPasswordMessage(null);
     try {
@@ -342,7 +342,7 @@ export default function EmployeeDetailPage() {
             )}
             <Button 
               onClick={handleSetPassword} 
-              disabled={!manualPassword || manualPassword.length < 6 || passwordLoading}
+              disabled={!manualPassword || manualPassword.length < 4 || passwordLoading}
             >
               {passwordLoading ? "Setting..." : "Set Password"}
             </Button>
