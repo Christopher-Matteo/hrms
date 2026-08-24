@@ -595,11 +595,24 @@ export interface AdvanceInput {
   date?: string;
 }
 
+export type AdvanceUpdateStatus = typeof AdvanceUpdateStatus[keyof typeof AdvanceUpdateStatus];
+
+
+export const AdvanceUpdateStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+  recovered: 'recovered',
+} as const;
+
 export interface AdvanceUpdate {
-  status?: string;
+  status?: AdvanceUpdateStatus;
   /** @nullable */
   approvedById?: number | null;
   remainingBalance?: number;
+  amount?: number;
+  reason?: string;
+  date?: string;
 }
 
 export interface ContinueDuty {

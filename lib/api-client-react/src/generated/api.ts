@@ -4132,6 +4132,76 @@ export const useUpdateAdvance = <TError = ErrorType<unknown>,
       return useMutation(getUpdateAdvanceMutationOptions(options));
     }
 
+export const getDeleteAdvanceUrl = (id: number,) => {
+
+
+
+
+  return `/api/advances/${id}`
+}
+
+/**
+ * @summary Delete a salary advance
+ */
+export const deleteAdvance = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteAdvanceUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteAdvanceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdvance>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAdvance>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteAdvance'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAdvance>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteAdvance(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAdvanceMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAdvance>>>
+
+    export type DeleteAdvanceMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a salary advance
+ */
+export const useDeleteAdvance = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdvance>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAdvance>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteAdvanceMutationOptions(options));
+    }
+
 export const getGetContinueDutiesUrl = (params?: GetContinueDutiesParams,) => {
   const normalizedParams = new URLSearchParams();
 

@@ -1168,9 +1168,12 @@ export const UpdateAdvanceParams = zod.object({
 })
 
 export const UpdateAdvanceBody = zod.object({
-  "status": zod.string().optional(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'recovered']).optional(),
   "approvedById": zod.number().nullish(),
-  "remainingBalance": zod.number().optional()
+  "remainingBalance": zod.number().optional(),
+  "amount": zod.number().optional(),
+  "reason": zod.string().optional(),
+  "date": zod.string().optional()
 })
 
 export const UpdateAdvanceResponse = zod.object({
@@ -1185,6 +1188,16 @@ export const UpdateAdvanceResponse = zod.object({
   "date": zod.string().optional(),
   "createdAt": zod.string().optional()
 })
+
+
+/**
+ * @summary Delete a salary advance
+ */
+export const DeleteAdvanceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteAdvanceResponse = zod.void()
 
 
 /**

@@ -110,7 +110,17 @@ router.patch("/advances/:id", async (req, res): Promise<void> => {
   const updates: Record<string, unknown> = {};
   if (req.body.status !== undefined) updates.status = req.body.status;
   if (req.body.approvedById !== undefined) updates.approvedById = req.body.approvedById;
-  if (req.body.remainingBalance !== undefined) updates.remainingBalance = String(req.body.remainingBalance);
+  if (req.body.remainingBalance !== undefined) {
+    updates.remainingBalance = String(req.body.remainingBalance);
+  }
+  if (req.body.amount !== undefined) {
+    updates.amount = String(req.body.amount);
+    if (req.body.remainingBalance === undefined) {
+      updates.remainingBalance = String(req.body.amount);
+    }
+  }
+  if (req.body.reason !== undefined) updates.reason = req.body.reason;
+  if (req.body.date !== undefined) updates.date = req.body.date;
 
   const [advance] = await db
     .update(advancesTable)
@@ -123,6 +133,14 @@ router.patch("/advances/:id", async (req, res): Promise<void> => {
     return;
   }
   res.json(await formatAdvance(advance));
+});
+
+router.delete("/advances/:id", async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+
+  await db.delete(advancesTable).where(eq(advancesTable.id, id));
+  res.sendStatus(204);
 });
 
 export default router;

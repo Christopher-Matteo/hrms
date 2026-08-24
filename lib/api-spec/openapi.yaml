@@ -1058,6 +1058,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Advance"
+    delete:
+      operationId: deleteAdvance
+      tags: [advances]
+      summary: Delete a salary advance
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: No Content
 
   # CONTINUE DUTY
   /continue-duties:
@@ -2318,10 +2331,17 @@ components:
       properties:
         status:
           type: string
+          enum: [pending, approved, rejected, recovered]
         approvedById:
           type: ["integer", "null"]
         remainingBalance:
           type: number
+        amount:
+          type: number
+        reason:
+          type: string
+        date:
+          type: string
 
     ContinueDuty:
       type: object

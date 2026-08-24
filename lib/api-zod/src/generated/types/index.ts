@@ -11,6 +11,7 @@ export * from './advance';
 export * from './advanceInput';
 export * from './advanceStatus';
 export * from './advanceUpdate';
+export * from './advanceUpdateStatus';
 export * from './announcement';
 export * from './announcementInput';
 export * from './announcementUpdate';
