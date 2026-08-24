@@ -919,6 +919,8 @@ export const GetLeaveRequestsResponseItem = zod.object({
   "reason": zod.string(),
   "managerComment": zod.string().nullish(),
   "approvedById": zod.number().nullish(),
+  "informed": zod.enum(['informed', 'uninformed']).optional(),
+  "salaryCalculate": zod.enum(['calculate', 'no_calculate']).optional(),
   "createdAt": zod.string().optional()
 })
 export const GetLeaveRequestsResponse = zod.array(GetLeaveRequestsResponseItem)
@@ -932,7 +934,9 @@ export const CreateLeaveRequestBody = zod.object({
   "leaveType": zod.string(),
   "startDate": zod.string(),
   "endDate": zod.string(),
-  "reason": zod.string()
+  "reason": zod.string(),
+  "informed": zod.enum(['informed', 'uninformed']).optional(),
+  "salaryCalculate": zod.enum(['calculate', 'no_calculate']).optional()
 })
 
 export const CreateLeaveRequestResponse = zod.object({
@@ -948,6 +952,8 @@ export const CreateLeaveRequestResponse = zod.object({
   "reason": zod.string(),
   "managerComment": zod.string().nullish(),
   "approvedById": zod.number().nullish(),
+  "informed": zod.enum(['informed', 'uninformed']).optional(),
+  "salaryCalculate": zod.enum(['calculate', 'no_calculate']).optional(),
   "createdAt": zod.string().optional()
 })
 
@@ -972,6 +978,8 @@ export const GetLeaveRequestResponse = zod.object({
   "reason": zod.string(),
   "managerComment": zod.string().nullish(),
   "approvedById": zod.number().nullish(),
+  "informed": zod.enum(['informed', 'uninformed']).optional(),
+  "salaryCalculate": zod.enum(['calculate', 'no_calculate']).optional(),
   "createdAt": zod.string().optional()
 })
 
@@ -988,7 +996,9 @@ export const UpdateLeaveRequestBody = zod.object({
   "leaveType": zod.string(),
   "startDate": zod.string(),
   "endDate": zod.string(),
-  "reason": zod.string()
+  "reason": zod.string(),
+  "informed": zod.enum(['informed', 'uninformed']).optional(),
+  "salaryCalculate": zod.enum(['calculate', 'no_calculate']).optional()
 })
 
 export const UpdateLeaveRequestResponse = zod.object({
@@ -1004,6 +1014,8 @@ export const UpdateLeaveRequestResponse = zod.object({
   "reason": zod.string(),
   "managerComment": zod.string().nullish(),
   "approvedById": zod.number().nullish(),
+  "informed": zod.enum(['informed', 'uninformed']).optional(),
+  "salaryCalculate": zod.enum(['calculate', 'no_calculate']).optional(),
   "createdAt": zod.string().optional()
 })
 
@@ -1044,6 +1056,8 @@ export const ApproveLeaveResponse = zod.object({
   "reason": zod.string(),
   "managerComment": zod.string().nullish(),
   "approvedById": zod.number().nullish(),
+  "informed": zod.enum(['informed', 'uninformed']).optional(),
+  "salaryCalculate": zod.enum(['calculate', 'no_calculate']).optional(),
   "createdAt": zod.string().optional()
 })
 
@@ -1072,6 +1086,8 @@ export const RejectLeaveResponse = zod.object({
   "reason": zod.string(),
   "managerComment": zod.string().nullish(),
   "approvedById": zod.number().nullish(),
+  "informed": zod.enum(['informed', 'uninformed']).optional(),
+  "salaryCalculate": zod.enum(['calculate', 'no_calculate']).optional(),
   "createdAt": zod.string().optional()
 })
 

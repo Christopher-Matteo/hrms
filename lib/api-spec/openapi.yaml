@@ -2237,6 +2237,12 @@ components:
           type: ["string", "null"]
         approvedById:
           type: ["integer", "null"]
+        informed:
+          type: string
+          enum: [informed, uninformed]
+        salaryCalculate:
+          type: string
+          enum: [calculate, no_calculate]
         createdAt:
           type: string
 
@@ -2254,6 +2260,12 @@ components:
           type: string
         reason:
           type: string
+        informed:
+          type: string
+          enum: [informed, uninformed]
+        salaryCalculate:
+          type: string
+          enum: [calculate, no_calculate]
 
     LeaveDecision:
       type: object

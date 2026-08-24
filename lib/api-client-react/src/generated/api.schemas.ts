@@ -495,6 +495,22 @@ export const LeaveRequestStatus = {
   rejected: 'rejected',
 } as const;
 
+export type LeaveRequestInformed = typeof LeaveRequestInformed[keyof typeof LeaveRequestInformed];
+
+
+export const LeaveRequestInformed = {
+  informed: 'informed',
+  uninformed: 'uninformed',
+} as const;
+
+export type LeaveRequestSalaryCalculate = typeof LeaveRequestSalaryCalculate[keyof typeof LeaveRequestSalaryCalculate];
+
+
+export const LeaveRequestSalaryCalculate = {
+  calculate: 'calculate',
+  no_calculate: 'no_calculate',
+} as const;
+
 export interface LeaveRequest {
   id: number;
   employeeId: number;
@@ -512,8 +528,26 @@ export interface LeaveRequest {
   managerComment?: string | null;
   /** @nullable */
   approvedById?: number | null;
+  informed?: LeaveRequestInformed;
+  salaryCalculate?: LeaveRequestSalaryCalculate;
   createdAt?: string;
 }
+
+export type LeaveInputInformed = typeof LeaveInputInformed[keyof typeof LeaveInputInformed];
+
+
+export const LeaveInputInformed = {
+  informed: 'informed',
+  uninformed: 'uninformed',
+} as const;
+
+export type LeaveInputSalaryCalculate = typeof LeaveInputSalaryCalculate[keyof typeof LeaveInputSalaryCalculate];
+
+
+export const LeaveInputSalaryCalculate = {
+  calculate: 'calculate',
+  no_calculate: 'no_calculate',
+} as const;
 
 export interface LeaveInput {
   employeeId: number;
@@ -521,6 +555,8 @@ export interface LeaveInput {
   startDate: string;
   endDate: string;
   reason: string;
+  informed?: LeaveInputInformed;
+  salaryCalculate?: LeaveInputSalaryCalculate;
 }
 
 export interface LeaveDecision {

@@ -5,6 +5,8 @@
  * Red Fox Hotel HRMS & Payroll API
  * OpenAPI spec version: 0.1.0
  */
+import type { LeaveInputInformed } from './leaveInputInformed';
+import type { LeaveInputSalaryCalculate } from './leaveInputSalaryCalculate';
 
 export interface LeaveInput {
   employeeId: number;
@@ -12,4 +14,6 @@ export interface LeaveInput {
   startDate: string;
   endDate: string;
   reason: string;
+  informed?: LeaveInputInformed;
+  salaryCalculate?: LeaveInputSalaryCalculate;
 }

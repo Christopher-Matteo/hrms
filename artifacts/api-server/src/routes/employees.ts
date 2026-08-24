@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, employeesTable, branchesTable, shiftsTable, weeklyOffPoliciesTable, faceEmbeddingsTable, emailVerificationsTable, usersTable } from "@workspace/db";
+import { db, employeesTable, branchesTable, shiftsTable, weeklyOffPoliciesTable, faceEmbeddingsTable, emailVerificationsTable, usersTable, employeeBranchHistoryTable } from "@workspace/db";
 import { eq, and, ilike, sql, desc } from "drizzle-orm";
 import { sendMail } from "../lib/mailer";
 import * as crypto from "crypto";
@@ -291,6 +291,14 @@ router.post("/employees", async (req, res): Promise<void> => {
     })
     .returning();
 
+  // Insert initial branch history
+  await db.insert(employeeBranchHistoryTable).values({
+    employeeId: employee.id,
+    branchId: employee.branchId,
+    effectiveFrom: employee.joiningDate || new Date().toISOString().split("T")[0]!,
+    isCurrent: true,
+  });
+
   // Password auto-generation or manual
   const firstFour = finalFirstName.substring(0, 4).toUpperCase().padEnd(4, "X");
   const defaultPass = firstFour;
@@ -357,6 +365,33 @@ router.patch("/employees/:id", async (req, res): Promise<void> => {
     await db
       .update(usersTable)
       .set({ email: String(updates.email).trim().toLowerCase() })
+      .where(eq(usersTable.employeeId, id));
+  }
+
+  if (updates.branchId !== undefined && Number(updates.branchId) !== existing.branchId) {
+    const todayStr = new Date().toISOString().split("T")[0];
+    const yesterdayObj = new Date();
+    yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+    const yesterdayStr = yesterdayObj.toISOString().split("T")[0];
+
+    // Close the old history entry
+    await db
+      .update(employeeBranchHistoryTable)
+      .set({ isCurrent: false, effectiveTo: yesterdayStr })
+      .where(and(eq(employeeBranchHistoryTable.employeeId, id), eq(employeeBranchHistoryTable.isCurrent, true)));
+
+    // Insert new history entry
+    await db.insert(employeeBranchHistoryTable).values({
+      employeeId: id,
+      branchId: Number(updates.branchId),
+      effectiveFrom: todayStr,
+      isCurrent: true,
+    });
+
+    // Sync branchId in usersTable for login permissions
+    await db
+      .update(usersTable)
+      .set({ branchId: Number(updates.branchId) })
       .where(eq(usersTable.employeeId, id));
   }
 
