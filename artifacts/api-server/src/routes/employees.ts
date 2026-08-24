@@ -300,7 +300,7 @@ router.post("/employees", async (req, res): Promise<void> => {
   });
 
   // Password auto-generation or manual
-  const firstFour = finalFirstName.substring(0, 4).toUpperCase().padEnd(4, "X");
+  const firstFour = finalFirstName.substring(0, 4).toUpperCase().padEnd(4, "0");
   const defaultPass = firstFour;
   const finalPassword = (password && password.trim().length >= 6) ? password.trim() : defaultPass;
   const passwordHash = crypto.createHash("sha256").update(finalPassword + "hrms_salt_2024").digest("hex");

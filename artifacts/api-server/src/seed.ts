@@ -213,7 +213,7 @@ async function seed() {
       role = "branch_manager";
     }
 
-    const firstFour = emp.firstName.substring(0, 4).toUpperCase().padEnd(4, "X");
+    const firstFour = emp.firstName.substring(0, 4).toUpperCase().padEnd(4, "0");
     const defaultPass = firstFour;
     const passwordHash = hashPassword(defaultPass);
 
