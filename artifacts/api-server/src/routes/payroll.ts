@@ -85,6 +85,22 @@ export async function syncDraftPayroll(
         status = "absent";
         overtimeHours = null;
         lateMinutes = null;
+      } else {
+        // If lateMinutes is null in the database (e.g. from kiosk check-in), calculate it dynamically!
+        if (lateMinutes === null) {
+          const shiftStartMin = parseTimeToMinutes(shift.startTime);
+          const checkInMin = parseTimeToMinutes(a.checkIn);
+          let diff = checkInMin - shiftStartMin;
+          if (diff < -720) {
+            diff += 1440;
+          }
+          const grace = shift.gracePeriodMinutes ?? (settings ? settings.gracePeriodMinutes : 15);
+          if (diff > grace) {
+            lateMinutes = diff;
+          } else {
+            lateMinutes = 0;
+          }
+        }
       }
     }
 
@@ -235,7 +251,7 @@ export async function syncDraftPayroll(
       sql`${continueDutiesTable.date}::text like ${record.month + "%"}`
     ));
   const continueDutyDays = duties.length;
-  const continueDutyAmount = Number(duties.reduce((sum, d) => sum + Number(d.amount), 0).toFixed(2));
+  const continueDutyAmount = Number((continueDutyDays * dailySalary).toFixed(2));
 
   const overtimeHours = Number(attendance.reduce((sum, a) => sum + Number(a.overtimeHours ?? 0), 0).toFixed(2));
   const overtimeAmount = Number((overtimeHours * overtimeRate).toFixed(2));
