@@ -1,5 +1,4 @@
 {
-  "outputDirectory": "artifacts/hotel-hrms/dist/public",
   "cleanUrls": false,
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index.ts" },
