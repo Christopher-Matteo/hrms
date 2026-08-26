@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { HelpCircle, Clock, CheckCircle2, XCircle, Search, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const BASE = (import.meta as any).env.VITE_API_URL ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
+const BASE = (import.meta as any).env.VITE_API_URL && !(import.meta as any).env.VITE_API_URL.includes("railway.app") ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
 
 const STATUS_COLORS: Record<string, string> = {
   open: "bg-red-100 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30",

@@ -1,7 +1,7 @@
 import { useRoute, Link } from "wouter";
 import { useGetPayrollRecord } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-const BASE = (import.meta as any).env.VITE_API_URL ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
+const BASE = (import.meta as any).env.VITE_API_URL && !(import.meta as any).env.VITE_API_URL.includes("railway.app") ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
 import { ArrowLeft, Printer, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 

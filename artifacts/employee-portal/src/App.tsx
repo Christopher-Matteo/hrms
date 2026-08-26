@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import BiometricAttendance from "./components/BiometricAttendance";
 
-const BASE = (import.meta as any).env.VITE_API_URL ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
+const BASE = (import.meta as any).env.VITE_API_URL && !(import.meta as any).env.VITE_API_URL.includes("railway.app") ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
 
 type ScreenState = "LOGIN" | "REGISTER" | "FORGOT_PASSWORD" | "PORTAL" | "KIOSK";
 type TabState = "DASHBOARD" | "ATTENDANCE" | "LEAVES" | "ANNOUNCEMENTS" | "DOCUMENTS" | "SUPPORT" | "SETTINGS" | "BIOMETRIC_ATTENDANCE";

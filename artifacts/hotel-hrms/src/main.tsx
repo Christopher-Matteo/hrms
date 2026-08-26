@@ -4,6 +4,8 @@ import "./index.css";
 import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 
 setAuthTokenGetter(() => localStorage.getItem("token"));
-setBaseUrl(import.meta.env.VITE_API_URL || null);
+const apiUrl = import.meta.env.VITE_API_URL;
+const baseUrl = apiUrl && !apiUrl.includes("railway.app") ? apiUrl : null;
+setBaseUrl(baseUrl);
 
 createRoot(document.getElementById("root")!).render(<App />);
