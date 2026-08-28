@@ -1,6 +1,5 @@
 import fs from "fs";
 import path from "path";
-import PDFDocument from "pdfkit";
 import { logger } from "./logger";
 import { db, advancesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
@@ -165,11 +164,12 @@ export function generatePayslipPdf(payroll: any, emp: any, branch: any): Promise
         ? totalAdvanceBalance 
         : Math.max(0, totalAdvanceBalance - Number(payroll.advanceDeduction || 0));
       logger.info(`Generating PDF for payroll month ${payroll.month}, employee ${emp.firstName} ${emp.lastName}`);
+      const PDFDocument = (globalThis as any).require("pdfkit");
       const doc = new PDFDocument({ size: "A4", margin: 50 });
       const chunks: Buffer[] = [];
-      doc.on("data", (chunk) => chunks.push(chunk));
+      doc.on("data", (chunk: any) => chunks.push(chunk));
       doc.on("end", () => resolve(Buffer.concat(chunks)));
-      doc.on("error", (err) => reject(err));
+      doc.on("error", (err: any) => reject(err));
 
       // Header
       doc.fillColor("#b91c1c").font("Helvetica-Bold").fontSize(20).text("RED FOX HOTEL", { align: "center" });
