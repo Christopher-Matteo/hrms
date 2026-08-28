@@ -2,6 +2,7 @@
   "outputDirectory": "dist/public",
   "cleanUrls": false,
   "rewrites": [
+    { "source": "/api/:path*", "destination": "https://redfoxhrms.vercel.app/api/:path*" },
     { "source": "/((?!api|assets|models|static|favicon.svg|opengraph.jpg|robots.txt).*)", "destination": "/index.html" }
   ]
 }
