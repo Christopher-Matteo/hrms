@@ -9,7 +9,7 @@ function main() {
     console.log('  Vercel Build Router - Deploying Frontends');
     console.log('==========================================================');
     try {
-      execSync(`${pnpm} --filter @workspace/hotel-hrms run build && ${pnpm} --filter @workspace/employee-portal run build`, { stdio: 'inherit', shell: true });
+      execSync(`${pnpm} --filter @workspace/api-server run build && ${pnpm} --filter @workspace/hotel-hrms run build && ${pnpm} --filter @workspace/employee-portal run build`, { stdio: 'inherit', shell: true });
       
       const fs = require('fs');
       const path = require('path');
