@@ -2,6 +2,8 @@ import fs from "fs";
 import path from "path";
 import PDFDocument from "pdfkit";
 import { logger } from "./logger";
+import { db, advancesTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 
 // Parse Supabase project reference from DATABASE_URL
 const dbUrl = process.env.DATABASE_URL || "";
@@ -154,8 +156,14 @@ export async function downloadFile(key: string, provider: string): Promise<Buffe
  * Generates a beautiful PDF for a payslip.
  */
 export function generatePayslipPdf(payroll: any, emp: any, branch: any): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     try {
+      const approvedAdvances = await db.select().from(advancesTable)
+        .where(and(eq(advancesTable.employeeId, emp.id), eq(advancesTable.status, "approved")));
+      const totalAdvanceBalance = approvedAdvances.reduce((sum, a) => sum + Number(a.remainingBalance), 0);
+      const remainingAdvance = payroll.status === "paid" 
+        ? totalAdvanceBalance 
+        : Math.max(0, totalAdvanceBalance - Number(payroll.advanceDeduction || 0));
       logger.info(`Generating PDF for payroll month ${payroll.month}, employee ${emp.firstName} ${emp.lastName}`);
       const doc = new PDFDocument({ size: "A4", margin: 50 });
       const chunks: Buffer[] = [];
@@ -254,6 +262,9 @@ export function generatePayslipPdf(payroll: any, emp: any, branch: any): Promise
       doc.rect(50, y, 500, 25).fill("#eff6ff");
       doc.fillColor("#1e3a8a").fontSize(11).text("Net Pay:", 60, y + 7);
       doc.text(`Rs. ${Number(payroll.netSalary || 0).toFixed(2)}`, 240, y + 7);
+      if (remainingAdvance > 0) {
+        doc.fillColor("#b91c1c").fontSize(9).text(`Remaining Advance: Rs. ${remainingAdvance.toFixed(2)}`, 310, y + 8);
+      }
 
       // Signatures
       y += 60;

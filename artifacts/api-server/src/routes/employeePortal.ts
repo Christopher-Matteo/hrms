@@ -181,17 +181,19 @@ router.get("/attendance/history", requireAuth(), async (req: AuthenticatedReques
   const { filter } = req.query; // 'weekly' | 'monthly' | 'yearly'
   let dateCondition = sql`1=1`;
 
-  const today = new Date();
+  const now = new Date();
+  const todayStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); // YYYY-MM-DD
+
   if (filter === "weekly") {
-    const lastWeek = new Date();
-    lastWeek.setDate(today.getDate() - 7);
-    dateCondition = sql`${attendanceTable.date} >= ${lastWeek.toISOString().split("T")[0]}`;
+    const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const lastWeekStr = lastWeek.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    dateCondition = sql`${attendanceTable.date} >= ${lastWeekStr}`;
   } else if (filter === "monthly") {
-    const currentMonth = today.toISOString().slice(0, 7); // YYYY-MM
-    dateCondition = sql`to_char(${attendanceTable.date}, 'YYYY-MM') = ${currentMonth}`;
+    const currentMonth = todayStr.slice(0, 7); // YYYY-MM
+    dateCondition = sql`${attendanceTable.date}::text like ${currentMonth + '%'}`;
   } else if (filter === "yearly") {
-    const currentYear = today.getFullYear().toString(); // YYYY
-    dateCondition = sql`to_char(${attendanceTable.date}, 'YYYY') = ${currentYear}`;
+    const currentYear = todayStr.slice(0, 4); // YYYY
+    dateCondition = sql`${attendanceTable.date}::text like ${currentYear + '%'}`;
   }
 
   const history = await db
@@ -504,6 +506,39 @@ router.post("/announcements/:id/read", requireAuth(), async (req: AuthenticatedR
 // 5. SHIFTS ENDPOINTS
 // ----------------------------------------------------
 
+// Helper to calculate exact weekly off limit per month based on policy
+export function getWeeklyOffLimit(emp: any, policy: any) {
+  const policyType = policy?.policyType ?? emp?.policyType;
+  const policyName = policy?.name?.toLowerCase() || emp?.policyName?.toLowerCase() || "";
+  const isHousekeeping = emp?.department?.toLowerCase() === "housekeeping";
+
+  if (policyName.includes("month-")) {
+    const match = policyName.match(/month-(\d+)/);
+    if (match) return parseInt(match[1], 10);
+  }
+  if (policyName.includes("week-")) {
+    const match = policyName.match(/week-(\d+)/);
+    if (match) return parseInt(match[1], 10) * 4;
+  }
+
+  if (policyType === "two_days_per_week") {
+    return 8;
+  }
+  if (policyType === "one_day_per_week" || policyType === "four_days_per_month" || policyType === "four_weeks_per_month") {
+    return 4;
+  }
+  if (policyType === "three_weeks_per_month") {
+    return 3;
+  }
+  if (policyType === "two_weeks_per_month") {
+    return 2;
+  }
+  if (policyType === "one_week_per_month" || policyType === "one_day_per_month" || isHousekeeping) {
+    return 1;
+  }
+  return 4; // Default fallback
+}
+
 // Get schedule
 router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, res): Promise<void> => {
   if (!req.user?.employeeId) {
@@ -533,17 +568,17 @@ router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, 
     return;
   }
 
-  // 2. Generate next limitDays in IST (en-CA YYYY-MM-DD format)
-  const isHousekeeping = emp.department?.toLowerCase() === "housekeeping" || emp.policyType === "one_week_per_month" || emp.policyType === "one_day_per_month";
-  const limitDays = isHousekeeping ? 1 : 4;
+  // 2. Generate today and tomorrow in IST (en-CA YYYY-MM-DD format)
+  const now = new Date();
+  const todayStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  
+  // Timezone-safe addition of 24 hours to generate tomorrowStr and dayAfterTomorrowStr
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const tomorrowStr = tomorrow.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const dayAfterTomorrow = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+  const dayAfterTomorrowStr = dayAfterTomorrow.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
-  const targetDates: string[] = [];
-  for (let i = 1; i <= limitDays; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    const dateStr = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-    targetDates.push(dateStr);
-  }
+  const targetDates = [todayStr, tomorrowStr, dayAfterTomorrowStr];
 
   // 3. Fetch custom shift schedules for these dates
   const customSchedules = await db
@@ -566,23 +601,26 @@ router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, 
 
   const customScheduleMap = new Map(customSchedules.map(s => [s.date, s]));
 
-  // 4. Fetch marked weekly offs for these dates
-  const weekoffs = await db
-    .select({ date: attendanceTable.date })
+  // 4. Fetch marked weekly offs and attendance records for these dates
+  const attendanceRecords = await db
+    .select({ date: attendanceTable.date, status: attendanceTable.status })
     .from(attendanceTable)
     .where(
       and(
         eq(attendanceTable.employeeId, req.user.employeeId),
-        eq(attendanceTable.status, "weekly_off"),
         inArray(attendanceTable.date, targetDates)
       )
     );
-  const weekoffDates = new Set(weekoffs.map(w => w.date));
 
-  // 5. Build final list of 7 days
+  const weekoffDates = new Set(attendanceRecords.filter(r => r.status === "weekly_off").map(r => r.date));
+  const onDutyDates = new Set(attendanceRecords.filter(r => r.status !== "weekly_off").map(r => r.date));
+
+  // 5. Build final list of shifts
   const list = targetDates.map((dateStr, index) => {
     const custom = customScheduleMap.get(dateStr);
     const isWeekoff = weekoffDates.has(dateStr);
+    const isOnDuty = onDutyDates.has(dateStr);
+    const isToday = dateStr === todayStr;
 
     if (custom) {
       return {
@@ -593,6 +631,8 @@ router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, 
         startTime: custom.startTime,
         endTime: custom.endTime,
         isWeekoff,
+        isOnDuty,
+        isToday,
       };
     } else {
       // Fallback to default shift
@@ -604,6 +644,8 @@ router.get("/shifts/schedule", requireAuth(), async (req: AuthenticatedRequest, 
         startTime: emp.startTime || "09:00 AM",
         endTime: emp.endTime || "07:00 PM",
         isWeekoff,
+        isOnDuty,
+        isToday,
       };
     }
   });
@@ -651,28 +693,27 @@ router.post("/shifts/weekoff", requireAuth(), async (req: AuthenticatedRequest, 
 
   const weeklyOffCount = existingRecords.filter(r => r.status === "weekly_off").length;
 
-  // 4. Check policy limits
-  const policyType = policy?.policyType ?? "one_day_per_week";
-  const isHousekeeping = emp.department?.toLowerCase() === "housekeeping";
-
-  if (policyType === "one_week_per_month" || policyType === "one_day_per_month" || isHousekeeping) {
-    if (weeklyOffCount >= 1) {
-      res.status(400).json({ error: "You can only mark 1 week-off per month under your policy." });
-      return;
-    }
-  } else {
-    if (weeklyOffCount >= 4) {
-      res.status(400).json({ error: "You can only mark up to 4 week-offs per month under your policy." });
-      return;
-    }
-  }
-
-  // 5. Create or update the attendance record for that date
+  // 4. Check if it's already a weekoff to toggle it off (unmark)
   const [existing] = await db
     .select()
     .from(attendanceTable)
     .where(and(eq(attendanceTable.employeeId, emp.id), eq(attendanceTable.date, date)));
 
+  if (existing && existing.status === "weekly_off") {
+    await db.delete(attendanceTable).where(eq(attendanceTable.id, existing.id));
+    res.json({ success: true, status: "removed" });
+    return;
+  }
+
+  // 5. Check policy limits (only when marking a new weekoff)
+  const limit = getWeeklyOffLimit(emp, policy);
+
+  if (weeklyOffCount >= limit) {
+    res.status(400).json({ error: `You can only mark up to ${limit} week-offs per month under your policy.` });
+    return;
+  }
+
+  // 6. Create or update the attendance record for that date
   if (existing) {
     await db
       .update(attendanceTable)
@@ -698,7 +739,7 @@ router.post("/shifts/weekoff", requireAuth(), async (req: AuthenticatedRequest, 
     });
   }
 
-  res.json({ success: true });
+  res.json({ success: true, status: "marked" });
 });
 
 // Request shift swap

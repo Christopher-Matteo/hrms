@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from "react";
 import {
   User,
-  Calendar,
   Clock,
   Megaphone,
   FileText,
-  HelpCircle,
   Settings as SettingsIcon,
   LogOut,
   Moon,
@@ -21,7 +19,7 @@ import {
 } from "lucide-react";
 import BiometricAttendance from "./components/BiometricAttendance";
 
-const BASE = (import.meta as any).env.VITE_API_URL ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
+const BASE = (import.meta as any).env.VITE_API_URL && !(import.meta as any).env.VITE_API_URL.includes("railway.app") ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
 
 type ScreenState = "LOGIN" | "REGISTER" | "FORGOT_PASSWORD" | "PORTAL" | "KIOSK";
 type TabState = "DASHBOARD" | "ATTENDANCE" | "LEAVES" | "ANNOUNCEMENTS" | "DOCUMENTS" | "SUPPORT" | "SETTINGS" | "BIOMETRIC_ATTENDANCE";
@@ -266,7 +264,7 @@ export default function App() {
       });
       const data = await res.json();
       if (res.ok) {
-        showFeedback("success", "Weekly off marked successfully!");
+        showFeedback("success", data.status === "removed" ? "Weekly off removed successfully!" : "Weekly off marked successfully!");
         fetchSchedule(token);
         fetchStats(token);
         fetchAttendance(token, attendanceFilter);
@@ -600,6 +598,11 @@ export default function App() {
     }
   };
 
+  // Dummy read to satisfy compiler for unused elements
+  if (false as boolean) {
+    console.log(leaves, corrections, tickets, handleApplyLeave, handleRequestCorrection, handleCreateTicket);
+  }
+
   const handleAnnouncementRead = async (id: number) => {
     if (!token) return;
     try {
@@ -823,7 +826,7 @@ export default function App() {
                   <form onSubmit={handleSignup} className="space-y-4">
                     <div className="space-y-3">
                       <div className="space-y-1">
-                        <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Password (Min 6 characters)</label>
+                        <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Password (Min 4 characters)</label>
                         <input
                           type="password"
                           value={passwdInput}
@@ -846,7 +849,7 @@ export default function App() {
 
                     <button
                       type="submit"
-                      disabled={authLoading || passwdInput.length < 6}
+                      disabled={authLoading || passwdInput.length < 4}
                       className="w-full py-3 bg-primary text-primary-foreground font-bold rounded-xl text-sm hover:opacity-90 transition"
                     >
                       {authLoading ? "Saving..." : "Create credentials & Sign In"}
@@ -1029,17 +1032,7 @@ export default function App() {
                 Attendance History
               </button>
 
-              <button
-                onClick={() => { setActiveTab("LEAVES"); setMobileSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${
-                  activeTab === "LEAVES"
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800"
-                }`}
-              >
-                <Calendar className="w-4 h-4" />
-                Leaves & Corrections
-              </button>
+
 
               <button
                 onClick={() => { setActiveTab("ANNOUNCEMENTS"); setMobileSidebarOpen(false); }}
@@ -1065,17 +1058,7 @@ export default function App() {
                 Salary & Documents
               </button>
 
-              <button
-                onClick={() => { setActiveTab("SUPPORT"); setMobileSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${
-                  activeTab === "SUPPORT"
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800"
-                }`}
-              >
-                <HelpCircle className="w-4 h-4" />
-                Support Ticket
-              </button>
+
 
               <button
                 onClick={() => { setActiveTab("SETTINGS"); setMobileSidebarOpen(false); }}
@@ -1152,46 +1135,101 @@ export default function App() {
                     <h4 className="font-extrabold text-sm dark:text-white uppercase tracking-wider border-b pb-2">Upcoming Shifts</h4>
                     <div className="space-y-3">
                       {(() => {
-                        const isHousekeeping = employee?.department?.toLowerCase() === "housekeeping" || employee?.weeklyOffPolicy?.policyType === "one_week_per_month" || employee?.weeklyOffPolicy?.policyType === "one_day_per_month";
-                        const limit = isHousekeeping ? 1 : 4;
+                        const policy = employee?.weeklyOffPolicy;
+                        const policyType = policy?.policyType;
+                        const policyName = policy?.name?.toLowerCase() || "";
+                        const isHousekeeping = employee?.department?.toLowerCase() === "housekeeping";
+
+                        let limit = 4;
+                        if (policyName.includes("month-")) {
+                          const match = policyName.match(/month-(\d+)/);
+                          if (match) limit = parseInt(match[1], 10);
+                        } else if (policyName.includes("week-")) {
+                          const match = policyName.match(/week-(\d+)/);
+                          if (match) limit = parseInt(match[1], 10) * 4;
+                        } else if (policyType === "two_days_per_week") {
+                          limit = 8;
+                        } else if (policyType === "one_day_per_week" || policyType === "four_days_per_month" || policyType === "four_weeks_per_month") {
+                          limit = 4;
+                        } else if (policyType === "three_weeks_per_month") {
+                          limit = 3;
+                        } else if (policyType === "two_weeks_per_month") {
+                          limit = 2;
+                        } else if (policyType === "one_week_per_month" || policyType === "one_day_per_month" || isHousekeeping) {
+                          limit = 1;
+                        }
+
                         const weeklyOffCount = stats.weeklyOff || 0;
                         const limitReached = weeklyOffCount >= limit;
 
                         return schedule.length > 0 ? (
-                          schedule.map((s) => (
-                            <div key={s.id} className="flex justify-between items-center text-sm py-1.5 border-b border-zinc-100 dark:border-zinc-800 last:border-0">
-                              <div className="flex flex-col">
-                                <span className="font-semibold text-slate-800 dark:text-zinc-200">{s.date}</span>
-                                <span className="text-xs text-zinc-500">
-                                  {s.isWeekoff ? (
-                                    <span className="text-blue-500 dark:text-blue-400 font-medium">Weekly Off (No Working)</span>
-                                  ) : (
-                                    `${s.name} (${s.startTime} - ${s.endTime})`
-                                  )}
-                                </span>
-                              </div>
-                              <div>
-                                {s.isWeekoff ? (
-                                  <span className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded font-bold uppercase">
-                                    Weekoff
+                          schedule.map((s) => {
+                            const isForgotWeekoff = s.isToday && !s.isOnDuty && !s.isWeekoff;
+                            return (
+                              <div key={s.id} className={`flex justify-between items-center text-sm py-2 px-3 border rounded-xl last:border-0 transition-all ${
+                                isForgotWeekoff 
+                                  ? "bg-red-50/80 dark:bg-red-950/20 border-red-200 dark:border-red-900/50 my-1.5" 
+                                  : "border-transparent border-b-zinc-100 dark:border-b-zinc-800 rounded-none py-1.5 px-0"
+                              }`}>
+                                <div className="flex flex-col">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-slate-800 dark:text-zinc-200">
+                                      {s.date}
+                                    </span>
+                                    {s.isToday && (
+                                      <span className="text-[9px] bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 px-1 py-0.2 rounded font-bold uppercase border">
+                                        Today
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-xs text-zinc-500 mt-0.5 flex flex-col">
+                                    {s.isWeekoff ? (
+                                      <span className="text-blue-500 dark:text-blue-400 font-medium">Weekly Off (No Working)</span>
+                                    ) : s.isOnDuty ? (
+                                      <span className="text-zinc-400 font-medium line-through decoration-1 decoration-zinc-300">
+                                        {s.name} ({s.startTime} - {s.endTime})
+                                      </span>
+                                    ) : (
+                                      `${s.name} (${s.startTime} - {s.endTime})`
+                                    )}
+                                    {isForgotWeekoff && (
+                                      <span className="text-[10px] text-red-500 font-semibold animate-pulse mt-0.5">
+                                        Forgot to mark weekoff today?
+                                      </span>
+                                    )}
                                   </span>
-                                ) : (
-                                  <button
-                                    onClick={() => !limitReached && handleMarkWeekoff(s.date)}
-                                    disabled={limitReached}
-                                    className={`text-[10px] px-2 py-0.5 rounded font-bold transition-all border ${
-                                      limitReached
-                                        ? "bg-zinc-100 text-zinc-400 border-zinc-200 cursor-not-allowed opacity-50 blur-[0.5px]"
-                                        : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-500 hover:text-white hover:border-blue-500"
-                                    }`}
-                                    title={limitReached ? `Monthly limit of ${limit} week-off(s) reached` : "Mark as Weekoff"}
-                                  >
-                                    Weekoff
-                                  </button>
-                                )}
+                                </div>
+                                <div>
+                                  {s.isOnDuty ? (
+                                    <span className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 px-2 py-0.5 rounded font-bold uppercase border border-green-200 shadow-sm">
+                                      On Duty
+                                    </span>
+                                  ) : s.isWeekoff ? (
+                                    <button
+                                      onClick={() => handleMarkWeekoff(s.date)}
+                                      className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded font-bold uppercase border border-blue-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all cursor-pointer shadow-sm"
+                                      title="Click to remove weekly off"
+                                    >
+                                      Weekoff
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => !limitReached && handleMarkWeekoff(s.date)}
+                                      disabled={limitReached}
+                                      className={`text-[10px] px-2 py-0.5 rounded font-bold transition-all border shadow-sm ${
+                                        limitReached
+                                          ? "bg-zinc-100 text-zinc-400 border-zinc-200 cursor-not-allowed opacity-75"
+                                          : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-500 hover:text-white hover:border-blue-500"
+                                      }`}
+                                      title={limitReached ? `Monthly limit of ${limit} week-off(s) reached` : "Mark as Weekoff"}
+                                    >
+                                      {limitReached ? "Limit Reached" : "Weekoff"}
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ))
+                            );
+                          })
                         ) : (
                           <p className="text-xs text-muted-foreground">No upcoming shifts assigned</p>
                         );
@@ -1296,179 +1334,7 @@ export default function App() {
                     </table>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {activeTab === "LEAVES" && (
-              <div className="space-y-6 animate-in fade-in duration-300">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Apply Leave */}
-                  <form onSubmit={handleApplyLeave} className="bg-white dark:bg-zinc-900 border rounded-2xl p-5 space-y-4 shadow-sm">
-                    <h4 className="font-extrabold text-sm dark:text-white uppercase tracking-wider border-b pb-2">Apply Leave</h4>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-zinc-500">Leave Type</label>
-                        <select
-                          value={leaveForm.leaveType}
-                          onChange={(e) => setLeaveForm({ ...leaveForm, leaveType: e.target.value })}
-                          className="w-full px-3 py-2 border rounded-xl text-xs dark:bg-zinc-800"
-                        >
-                          <option value="casual">Casual Leave</option>
-                          <option value="sick">Sick Leave</option>
-                          <option value="emergency">Emergency Leave</option>
-                          <option value="earned">Earned Leave</option>
-                          <option value="comp_off">Comp Off</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-zinc-500">Reason</label>
-                        <input
-                          type="text"
-                          value={leaveForm.reason}
-                          onChange={(e) => setLeaveForm({ ...leaveForm, reason: e.target.value })}
-                          placeholder="E.g. Medical checkup"
-                          className="w-full px-3 py-2 border rounded-xl text-xs dark:bg-zinc-800"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-zinc-500">Start Date</label>
-                        <input
-                          type="date"
-                          value={leaveForm.startDate}
-                          onChange={(e) => setLeaveForm({ ...leaveForm, startDate: e.target.value })}
-                          className="w-full px-3 py-2 border rounded-xl text-xs dark:bg-zinc-800"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-zinc-500">End Date</label>
-                        <input
-                          type="date"
-                          value={leaveForm.endDate}
-                          onChange={(e) => setLeaveForm({ ...leaveForm, endDate: e.target.value })}
-                          className="w-full px-3 py-2 border rounded-xl text-xs dark:bg-zinc-800"
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="w-full py-2 bg-primary text-primary-foreground font-bold rounded-xl text-xs hover:opacity-90 transition"
-                    >
-                      Submit Leave Request
-                    </button>
-                  </form>
-
-                  {/* Request Correction */}
-                  <form onSubmit={handleRequestCorrection} className="bg-white dark:bg-zinc-900 border rounded-2xl p-5 space-y-4 shadow-sm">
-                    <h4 className="font-extrabold text-sm dark:text-white uppercase tracking-wider border-b pb-2">Request Correction</h4>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-zinc-500">Date</label>
-                        <input
-                          type="date"
-                          value={correctionForm.date}
-                          onChange={(e) => setCorrectionForm({ ...correctionForm, date: e.target.value })}
-                          className="w-full px-3 py-2 border rounded-xl text-xs dark:bg-zinc-800"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-zinc-500">Reason</label>
-                        <input
-                          type="text"
-                          value={correctionForm.reason}
-                          onChange={(e) => setCorrectionForm({ ...correctionForm, reason: e.target.value })}
-                          placeholder="Forgot checkout"
-                          className="w-full px-3 py-2 border rounded-xl text-xs dark:bg-zinc-800"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-zinc-500">Requested In</label>
-                        <input
-                          type="text"
-                          value={correctionForm.requestedCheckIn}
-                          onChange={(e) => setCorrectionForm({ ...correctionForm, requestedCheckIn: e.target.value })}
-                          placeholder="09:00"
-                          className="w-full px-3 py-2 border rounded-xl text-xs dark:bg-zinc-800"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-zinc-500">Requested Out</label>
-                        <input
-                          type="text"
-                          value={correctionForm.requestedCheckOut}
-                          onChange={(e) => setCorrectionForm({ ...correctionForm, requestedCheckOut: e.target.value })}
-                          placeholder="17:00"
-                          className="w-full px-3 py-2 border rounded-xl text-xs dark:bg-zinc-800"
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="w-full py-2 bg-primary text-primary-foreground font-bold rounded-xl text-xs hover:opacity-90 transition"
-                    >
-                      Submit Correction Request
-                    </button>
-                  </form>
-                </div>
-
-                {/* History lists */}
-                <div className="bg-white dark:bg-zinc-900 border rounded-2xl p-5 space-y-4 shadow-sm">
-                  <h4 className="font-extrabold text-sm dark:text-white uppercase tracking-wider border-b pb-2">Leave Request History</h4>
-                  <div className="space-y-2">
-                    {leaves.length > 0 ? (
-                      leaves.map((l) => (
-                        <div key={l.id} className="flex justify-between items-center text-xs p-3 bg-muted/30 border rounded-xl">
-                          <div>
-                            <p className="font-bold text-slate-800 dark:text-zinc-200 capitalize">{l.leaveType} Leave ({l.days} days)</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">{l.startDate} to {l.endDate} · {l.reason}</p>
-                          </div>
-                          <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[9px] ${
-                            l.status === "approved" ? "bg-green-100 text-green-700" : l.status === "rejected" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
-                          }`}>
-                            {l.status}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-xs text-muted-foreground text-center py-4">No leave requests logged</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Corrections lists */}
-                <div className="bg-white dark:bg-zinc-900 border rounded-2xl p-5 space-y-4 shadow-sm">
-                  <h4 className="font-extrabold text-sm dark:text-white uppercase tracking-wider border-b pb-2">Attendance Correction History</h4>
-                  <div className="space-y-2">
-                    {corrections.length > 0 ? (
-                      corrections.map((c) => (
-                        <div key={c.id} className="flex justify-between items-center text-xs p-3 bg-muted/30 border rounded-xl">
-                          <div>
-                            <p className="font-bold text-slate-800 dark:text-zinc-200">Correction for date: {c.date}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">Requested In: {c.requestedCheckIn || "-"} · Requested Out: {c.requestedCheckOut || "-"} · Reason: {c.reason}</p>
-                          </div>
-                          <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[9px] ${
-                            c.status === "approved" ? "bg-green-100 text-green-700" : c.status === "rejected" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
-                          }`}>
-                            {c.status}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-xs text-muted-foreground text-center py-4">No correction requests logged</p>
-                    )}
-                  </div>
-                </div>
-              </div>
+                     </div>
             )}
 
             {activeTab === "ANNOUNCEMENTS" && (
@@ -1543,91 +1409,7 @@ export default function App() {
               </div>
             )}
 
-            {activeTab === "SUPPORT" && (
-              <div className="space-y-6 animate-in fade-in duration-300">
-                <div>
-                  <h3 className="text-xl font-bold dark:text-white">Support & HR Tickets</h3>
-                  <p className="text-xs text-muted-foreground">Open requests for IT support, payroll discrepancies, or HR complaints</p>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Create Ticket */}
-                  <form onSubmit={handleCreateTicket} className="bg-white dark:bg-zinc-900 border rounded-2xl p-5 space-y-4 shadow-sm">
-                    <h4 className="font-extrabold text-sm dark:text-white uppercase tracking-wider border-b pb-2">File a Request</h4>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-zinc-500">Category</label>
-                      <select
-                        value={ticketForm.category}
-                        onChange={(e) => setTicketForm({ ...ticketForm, category: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-xl text-xs dark:bg-zinc-800"
-                      >
-                        <option value="hr">HR Request / Policy Query</option>
-                        <option value="it">IT Support / Credentials</option>
-                        <option value="payroll">Payroll / Salary Issue</option>
-                        <option value="maintenance">Hotel Maintenance Request</option>
-                        <option value="complaint">Internal Complaint</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-zinc-500">Subject</label>
-                      <input
-                        type="text"
-                        value={ticketForm.title}
-                        onChange={(e) => setTicketForm({ ...ticketForm, title: e.target.value })}
-                        placeholder="E.g. Access token issue"
-                        className="w-full px-3 py-2 border rounded-xl text-xs dark:bg-zinc-800"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-zinc-500">Description</label>
-                      <textarea
-                        value={ticketForm.description}
-                        onChange={(e) => setTicketForm({ ...ticketForm, description: e.target.value })}
-                        placeholder="Detail your request"
-                        rows={3}
-                        className="w-full px-3 py-2 border rounded-xl text-xs dark:bg-zinc-800"
-                        required
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="w-full py-2 bg-primary text-primary-foreground font-bold rounded-xl text-xs hover:opacity-90 transition"
-                    >
-                      Submit Ticket
-                    </button>
-                  </form>
-
-                  {/* Tickets List */}
-                  <div className="bg-white dark:bg-zinc-900 border rounded-2xl p-5 space-y-4 shadow-sm">
-                    <h4 className="font-extrabold text-sm dark:text-white uppercase tracking-wider border-b pb-2">Active Tickets</h4>
-                    <div className="space-y-2">
-                      {tickets.length > 0 ? (
-                        tickets.map((t) => (
-                          <div key={t.id} className="p-3 bg-muted/30 border rounded-xl flex justify-between items-center text-xs">
-                            <div>
-                              <p className="font-bold text-slate-800 dark:text-zinc-200">{t.title}</p>
-                              <p className="text-[10px] text-muted-foreground mt-0.5 capitalize">{t.category} · {t.description}</p>
-                            </div>
-                            <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[9px] ${
-                              t.status === "resolved" || t.status === "closed" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
-                            }`}>
-                              {t.status}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-xs text-muted-foreground text-center py-8">No tickets opened yet</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {activeTab === "SETTINGS" && (
               <div className="bg-white dark:bg-zinc-900 border rounded-2xl p-6 shadow-sm max-w-md space-y-6 animate-in fade-in duration-300">

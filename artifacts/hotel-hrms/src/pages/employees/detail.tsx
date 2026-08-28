@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ArrowLeft, Save, Plus } from "lucide-react";
 
-const BASE = (import.meta as any).env.VITE_API_URL ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
+const BASE = (import.meta as any).env.VITE_API_URL && !(import.meta as any).env.VITE_API_URL.includes("railway.app") ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
 
 const DEPARTMENTS = [
   "Front Office",
@@ -81,7 +81,7 @@ export default function EmployeeDetailPage() {
   }
 
   const handleSetPassword = async () => {
-    if (!manualPassword || manualPassword.length < 6) return;
+    if (!manualPassword || manualPassword.length < 4) return;
     setPasswordLoading(true);
     setPasswordMessage(null);
     try {
@@ -342,7 +342,7 @@ export default function EmployeeDetailPage() {
             )}
             <Button 
               onClick={handleSetPassword} 
-              disabled={!manualPassword || manualPassword.length < 6 || passwordLoading}
+              disabled={!manualPassword || manualPassword.length < 4 || passwordLoading}
             >
               {passwordLoading ? "Setting..." : "Set Password"}
             </Button>

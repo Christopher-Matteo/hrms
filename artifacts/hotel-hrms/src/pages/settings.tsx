@@ -105,20 +105,12 @@ export default function SettingsPage() {
                   <Input className="mt-1" type="number" value={form.overtimeRatePerHour} onChange={set("overtimeRatePerHour")} />
                 </div>
                 <div>
-                  <Label>Continue Duty Rate (₹/day)</Label>
-                  <Input className="mt-1" type="number" value={form.continueDutyRate} onChange={set("continueDutyRate")} />
-                </div>
-                <div>
                   <Label>Late Deduction (₹/minute)</Label>
                   <Input className="mt-1" type="number" value={form.lateDeductionPerMinute} onChange={set("lateDeductionPerMinute")} />
                 </div>
                 <div>
                   <Label>Grace Period (minutes)</Label>
                   <Input className="mt-1" type="number" value={form.gracePeriodMinutes} onChange={set("gracePeriodMinutes")} />
-                </div>
-                <div>
-                  <Label>Working Hours Per Day</Label>
-                  <Input className="mt-1" type="number" value={form.workingHoursPerDay} onChange={set("workingHoursPerDay")} />
                 </div>
               </CardContent>
             </Card>

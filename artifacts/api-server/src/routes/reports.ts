@@ -15,27 +15,40 @@ router.get("/reports/attendance", async (req, res): Promise<void> => {
   if (branchId) conditions.push(eq(employeesTable.branchId, Number(branchId)));
   if (employeeId) conditions.push(eq(employeesTable.id, Number(employeeId)));
 
-  let empQuery = db.select().from(employeesTable).$dynamic();
+  let empQuery = db
+    .select({
+      employee: employeesTable,
+      branchName: branchesTable.name,
+    })
+    .from(employeesTable)
+    .leftJoin(branchesTable, eq(employeesTable.branchId, branchesTable.id))
+    .$dynamic();
+
   if (conditions.length > 0) empQuery = empQuery.where(and(...conditions));
   const employees = await empQuery;
 
-  const result = await Promise.all(employees.map(async (emp) => {
-    const attendance = await db.select().from(attendanceTable)
-      .where(and(
-        eq(attendanceTable.employeeId, emp.id),
-        sql`${attendanceTable.date}::text like ${String(month) + "%"}`
-      ));
+  // Bulk fetch attendance for the month
+  const attendanceRecords = await db
+    .select()
+    .from(attendanceTable)
+    .where(sql`${attendanceTable.date}::text like ${String(month) + "%"}`);
 
-    const branchName = emp.branchId
-      ? (await db.select({ name: branchesTable.name }).from(branchesTable).where(eq(branchesTable.id, emp.branchId)))[0]?.name ?? ""
-      : "";
+  const attendanceMap = new Map<number, typeof attendanceRecords>();
+  for (const r of attendanceRecords) {
+    if (!attendanceMap.has(r.employeeId)) {
+      attendanceMap.set(r.employeeId, []);
+    }
+    attendanceMap.get(r.employeeId)!.push(r);
+  }
 
+  const result = employees.map(({ employee, branchName }) => {
+    const attendance = attendanceMap.get(employee.id) || [];
     return {
-      employeeId: emp.id,
-      employeeName: `${emp.firstName} ${emp.lastName}`,
-      employeeCode: emp.employeeId,
-      department: emp.department,
-      branchName,
+      employeeId: employee.id,
+      employeeName: `${employee.firstName} ${employee.lastName}`,
+      employeeCode: employee.employeeId,
+      department: employee.department,
+      branchName: branchName ?? "",
       presentDays: attendance.filter(a => ["present", "late", "overtime"].includes(a.status)).length,
       absentDays: attendance.filter(a => a.status === "absent").length,
       weeklyOffDays: attendance.filter(a => a.status === "weekly_off").length,
@@ -44,7 +57,7 @@ router.get("/reports/attendance", async (req, res): Promise<void> => {
       overtimeHours: attendance.reduce((sum, a) => sum + Number(a.overtimeHours ?? 0), 0),
       workingHours: attendance.reduce((sum, a) => sum + Number(a.workingHours ?? 0), 0),
     };
-  }));
+  });
 
   res.json(result);
 });
@@ -57,29 +70,37 @@ router.get("/reports/payroll", async (req, res): Promise<void> => {
   }
 
   const conditions = [eq(payrollTable.month, String(month))];
-  let query = db.select().from(payrollTable).$dynamic();
+  if (branchId) conditions.push(eq(employeesTable.branchId, Number(branchId)));
+
+  let query = db
+    .select({
+      payroll: payrollTable,
+      employeeFirstName: employeesTable.firstName,
+      employeeLastName: employeesTable.lastName,
+      employeeCode: employeesTable.employeeId,
+      department: employeesTable.department,
+      branchName: branchesTable.name,
+    })
+    .from(payrollTable)
+    .leftJoin(employeesTable, eq(payrollTable.employeeId, employeesTable.id))
+    .leftJoin(branchesTable, eq(employeesTable.branchId, branchesTable.id))
+    .$dynamic();
+
   if (conditions.length > 0) query = query.where(and(...conditions));
-  const records = await query;
+  const rows = await query;
 
-  const result = await Promise.all(records.map(async (p) => {
-    const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, p.employeeId));
-    const branchName = emp?.branchId
-      ? (await db.select({ name: branchesTable.name }).from(branchesTable).where(eq(branchesTable.id, emp.branchId)))[0]?.name ?? ""
-      : "";
-
-    return {
-      employeeId: p.employeeId,
-      employeeName: emp ? `${emp.firstName} ${emp.lastName}` : "",
-      employeeCode: emp?.employeeId ?? "",
-      department: emp?.department ?? "",
-      branchName,
-      basicSalary: Number(p.basicSalary),
-      grossSalary: Number(p.grossSalary),
-      totalDeductions: Number(p.totalDeductions),
-      netSalary: Number(p.netSalary),
-      month: p.month,
-      status: p.status,
-    };
+  const result = rows.map((r) => ({
+    employeeId: r.payroll.employeeId,
+    employeeName: r.employeeFirstName && r.employeeLastName ? `${r.employeeFirstName} ${r.employeeLastName}` : "",
+    employeeCode: r.employeeCode ?? "",
+    department: r.department ?? "",
+    branchName: r.branchName ?? "",
+    basicSalary: Number(r.payroll.basicSalary),
+    grossSalary: Number(r.payroll.grossSalary),
+    totalDeductions: Number(r.payroll.totalDeductions),
+    netSalary: Number(r.payroll.netSalary),
+    month: r.payroll.month,
+    status: r.payroll.status,
   }));
 
   res.json(result);
@@ -95,24 +116,43 @@ router.get("/reports/leave", async (req, res): Promise<void> => {
   const conditions = [sql`${leavesTable.startDate}::text like ${String(month) + "%"}`];
   if (employeeId) conditions.push(eq(leavesTable.employeeId, Number(employeeId)));
 
-  let query = db.select().from(leavesTable).$dynamic();
+  let query = db
+    .select({
+      leave: leavesTable,
+      employeeFirstName: employeesTable.firstName,
+      employeeLastName: employeesTable.lastName,
+      employeeCode: employeesTable.employeeId,
+      department: employeesTable.department,
+    })
+    .from(leavesTable)
+    .leftJoin(employeesTable, eq(leavesTable.employeeId, employeesTable.id))
+    .$dynamic();
+
   if (conditions.length > 0) query = query.where(and(...conditions));
-  const leaves = await query;
+  const rows = await query;
 
   // Group by employee
-  const byEmployee = new Map<number, typeof leaves>();
-  for (const leave of leaves) {
-    if (!byEmployee.has(leave.employeeId)) byEmployee.set(leave.employeeId, []);
-    byEmployee.get(leave.employeeId)!.push(leave);
+  const byEmployee = new Map<number, { employeeName: string; employeeCode: string; department: string; leaves: typeof leavesTable.$inferSelect[] }>();
+  for (const row of rows) {
+    const empId = row.leave.employeeId;
+    if (!byEmployee.has(empId)) {
+      byEmployee.set(empId, {
+        employeeName: row.employeeFirstName && row.employeeLastName ? `${row.employeeFirstName} ${row.employeeLastName}` : "",
+        employeeCode: row.employeeCode ?? "",
+        department: row.department ?? "",
+        leaves: [],
+      });
+    }
+    byEmployee.get(empId)!.leaves.push(row.leave);
   }
 
-  const result = await Promise.all(Array.from(byEmployee.entries()).map(async ([empId, empLeaves]) => {
-    const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, empId));
+  const result = Array.from(byEmployee.entries()).map(([empId, info]) => {
+    const empLeaves = info.leaves;
     return {
       employeeId: empId,
-      employeeName: emp ? `${emp.firstName} ${emp.lastName}` : "",
-      employeeCode: emp?.employeeId ?? "",
-      department: emp?.department ?? "",
+      employeeName: info.employeeName,
+      employeeCode: info.employeeCode,
+      department: info.department,
       casualLeaves: empLeaves.filter(l => l.leaveType === "casual").length,
       sickLeaves: empLeaves.filter(l => l.leaveType === "sick").length,
       earnedLeaves: empLeaves.filter(l => l.leaveType === "earned").length,
@@ -121,7 +161,7 @@ router.get("/reports/leave", async (req, res): Promise<void> => {
       pendingLeaves: empLeaves.filter(l => l.status === "pending").length,
       approvedLeaves: empLeaves.filter(l => l.status === "approved").length,
     };
-  }));
+  });
 
   res.json(result);
 });
@@ -140,20 +180,28 @@ router.get("/reports/month-end-export", async (req, res): Promise<void> => {
     // 1. Attendance
     csvLines.push("=== ATTENDANCE SECTION ===");
     csvLines.push("Date,Employee Code,Employee Name,Status,Check In,Check Out,Working Hours,Late Minutes,Overtime Hours");
-    const attRecs = await db.select().from(attendanceTable)
+    const attRows = await db
+      .select({
+        attendance: attendanceTable,
+        employeeCode: employeesTable.employeeId,
+        firstName: employeesTable.firstName,
+        lastName: employeesTable.lastName,
+      })
+      .from(attendanceTable)
+      .leftJoin(employeesTable, eq(attendanceTable.employeeId, employeesTable.id))
       .where(sql`${attendanceTable.date}::text like ${month + "%"}`);
-    for (const a of attRecs) {
-      const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, a.employeeId));
+
+    for (const r of attRows) {
       csvLines.push([
-        cell(a.date),
-        cell(emp?.employeeId),
-        cell(emp ? `${emp.firstName} ${emp.lastName}` : ""),
-        cell(a.status),
-        cell(a.checkIn),
-        cell(a.checkOut),
-        cell(a.workingHours),
-        cell(a.lateMinutes),
-        cell(a.overtimeHours)
+        cell(r.attendance.date),
+        cell(r.employeeCode),
+        cell(r.firstName && r.lastName ? `${r.firstName} ${r.lastName}` : ""),
+        cell(r.attendance.status),
+        cell(r.attendance.checkIn),
+        cell(r.attendance.checkOut),
+        cell(r.attendance.workingHours),
+        cell(r.attendance.lateMinutes),
+        cell(r.attendance.overtimeHours)
       ].join(","));
     }
     csvLines.push("");
@@ -161,19 +209,27 @@ router.get("/reports/month-end-export", async (req, res): Promise<void> => {
     // 2. Payroll & Payslips
     csvLines.push("=== PAYROLL & PAYSLIPS SECTION ===");
     csvLines.push("Month,Employee Code,Employee Name,Basic Salary,Gross Salary,Total Deductions,Net Salary,Status");
-    const payRecs = await db.select().from(payrollTable)
+    const payRows = await db
+      .select({
+        payroll: payrollTable,
+        employeeCode: employeesTable.employeeId,
+        firstName: employeesTable.firstName,
+        lastName: employeesTable.lastName,
+      })
+      .from(payrollTable)
+      .leftJoin(employeesTable, eq(payrollTable.employeeId, employeesTable.id))
       .where(eq(payrollTable.month, month));
-    for (const p of payRecs) {
-      const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, p.employeeId));
+
+    for (const r of payRows) {
       csvLines.push([
-        cell(p.month),
-        cell(emp?.employeeId),
-        cell(emp ? `${emp.firstName} ${emp.lastName}` : ""),
-        cell(p.basicSalary),
-        cell(p.grossSalary),
-        cell(p.totalDeductions),
-        cell(p.netSalary),
-        cell(p.status)
+        cell(r.payroll.month),
+        cell(r.employeeCode),
+        cell(r.firstName && r.lastName ? `${r.firstName} ${r.lastName}` : ""),
+        cell(r.payroll.basicSalary),
+        cell(r.payroll.grossSalary),
+        cell(r.payroll.totalDeductions),
+        cell(r.payroll.netSalary),
+        cell(r.payroll.status)
       ].join(","));
     }
     csvLines.push("");
@@ -181,19 +237,27 @@ router.get("/reports/month-end-export", async (req, res): Promise<void> => {
     // 3. Leave Requests
     csvLines.push("=== LEAVE SECTION ===");
     csvLines.push("Leave Type,Employee Code,Employee Name,Start Date,End Date,Days,Status,Reason");
-    const leaveRecs = await db.select().from(leavesTable)
+    const leaveRows = await db
+      .select({
+        leave: leavesTable,
+        employeeCode: employeesTable.employeeId,
+        firstName: employeesTable.firstName,
+        lastName: employeesTable.lastName,
+      })
+      .from(leavesTable)
+      .leftJoin(employeesTable, eq(leavesTable.employeeId, employeesTable.id))
       .where(sql`${leavesTable.startDate}::text like ${month + "%"}`);
-    for (const l of leaveRecs) {
-      const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, l.employeeId));
+
+    for (const r of leaveRows) {
       csvLines.push([
-        cell(l.leaveType),
-        cell(emp?.employeeId),
-        cell(emp ? `${emp.firstName} ${emp.lastName}` : ""),
-        cell(l.startDate),
-        cell(l.endDate),
-        cell(l.days),
-        cell(l.status),
-        cell(l.reason)
+        cell(r.leave.leaveType),
+        cell(r.employeeCode),
+        cell(r.firstName && r.lastName ? `${r.firstName} ${r.lastName}` : ""),
+        cell(r.leave.startDate),
+        cell(r.leave.endDate),
+        cell(r.leave.days),
+        cell(r.leave.status),
+        cell(r.leave.reason)
       ].join(","));
     }
     csvLines.push("");
@@ -201,17 +265,25 @@ router.get("/reports/month-end-export", async (req, res): Promise<void> => {
     // 4. Advances
     csvLines.push("=== ADVANCES SECTION ===");
     csvLines.push("Date,Employee Code,Employee Name,Amount,Status,Reason");
-    const advRecs = await db.select().from(advancesTable)
+    const advRows = await db
+      .select({
+        advance: advancesTable,
+        employeeCode: employeesTable.employeeId,
+        firstName: employeesTable.firstName,
+        lastName: employeesTable.lastName,
+      })
+      .from(advancesTable)
+      .leftJoin(employeesTable, eq(advancesTable.employeeId, employeesTable.id))
       .where(sql`${advancesTable.date}::text like ${month + "%"}`);
-    for (const ad of advRecs) {
-      const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, ad.employeeId));
+
+    for (const r of advRows) {
       csvLines.push([
-        cell(ad.date),
-        cell(emp?.employeeId),
-        cell(emp ? `${emp.firstName} ${emp.lastName}` : ""),
-        cell(ad.amount),
-        cell(ad.status),
-        cell(ad.reason)
+        cell(r.advance.date),
+        cell(r.employeeCode),
+        cell(r.firstName && r.lastName ? `${r.firstName} ${r.lastName}` : ""),
+        cell(r.advance.amount),
+        cell(r.advance.status),
+        cell(r.advance.reason)
       ].join(","));
     }
     csvLines.push("");

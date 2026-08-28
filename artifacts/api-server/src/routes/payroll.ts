@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, payrollTable, employeesTable, attendanceTable, advancesTable, continueDutiesTable, branchesTable, settingsTable, holidaysTable, documentsTable, weeklyOffPoliciesTable, shiftsTable } from "@workspace/db";
+import { db, payrollTable, employeesTable, attendanceTable, advancesTable, continueDutiesTable, branchesTable, settingsTable, holidaysTable, documentsTable, weeklyOffPoliciesTable, shiftsTable, shiftScheduleTable, employeeBranchHistoryTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { generatePayslipPdf, uploadFile } from "../lib/storage";
 import { isDateWeeklyOff } from "../lib/weeklyOffHelper";
@@ -41,7 +41,7 @@ function getDaysInMonth(month: string): number {
   return new Date(year, m, 0).getDate();
 }
 
-async function syncDraftPayroll(
+export async function syncDraftPayroll(
   record: typeof payrollTable.$inferSelect,
   preFetched?: {
     settings?: typeof settingsTable.$inferSelect;
@@ -55,10 +55,10 @@ async function syncDraftPayroll(
   const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, record.employeeId));
   if (!emp) return record;
 
-  let shift: any = null;
-  if (emp.shiftId) {
-    [shift] = await db.select().from(shiftsTable).where(eq(shiftsTable.id, emp.shiftId));
-  }
+  const shifts = await db.select().from(shiftsTable);
+  const customSchedules = await db.select().from(shiftScheduleTable)
+    .where(and(eq(shiftScheduleTable.employeeId, emp.id), sql`${shiftScheduleTable.date}::text like ${record.month + "%"}`));
+  const customScheduleMap = new Map(customSchedules.map(s => [s.date, s.shiftId]));
 
   const settings = preFetched?.settings ?? (await db.select().from(settingsTable).limit(1))[0];
   const overtimeRate = settings ? Number(settings.overtimeRatePerHour) : 50;
@@ -72,6 +72,10 @@ async function syncDraftPayroll(
     let overtimeHours = a.overtimeHours;
     let lateMinutes = a.lateMinutes;
 
+    const customShiftId = customScheduleMap.get(a.date);
+    const targetShiftId = customShiftId !== undefined ? customShiftId : emp.shiftId;
+    const shift = targetShiftId ? shifts.find(s => s.id === targetShiftId) : null;
+
     if (a.faceVerificationStatus === "Not Verified" || a.faceVerificationStatus === "Mismatched") {
       status = "absent";
       overtimeHours = null;
@@ -81,6 +85,22 @@ async function syncDraftPayroll(
         status = "absent";
         overtimeHours = null;
         lateMinutes = null;
+      } else {
+        // If lateMinutes is null in the database (e.g. from kiosk check-in), calculate it dynamically!
+        if (lateMinutes === null) {
+          const shiftStartMin = parseTimeToMinutes(shift.startTime);
+          const checkInMin = parseTimeToMinutes(a.checkIn);
+          let diff = checkInMin - shiftStartMin;
+          if (diff < -720) {
+            diff += 1440;
+          }
+          const grace = shift.gracePeriodMinutes ?? (settings ? settings.gracePeriodMinutes : 15);
+          if (diff > grace) {
+            lateMinutes = diff;
+          } else {
+            lateMinutes = 0;
+          }
+        }
       }
     }
 
@@ -100,13 +120,34 @@ async function syncDraftPayroll(
 
   // Load holidays
   const holidays = preFetched?.holidays ?? (await db.select().from(holidaysTable));
-  const employeeHolidays = holidays.filter(h => !h.branchId || h.branchId === emp.branchId);
-  const holidayDates = new Set(employeeHolidays.map(h => h.date));
+
+  // Load employee branch history to correctly track branch-specific holidays
+  const branchHistory = await db.select().from(employeeBranchHistoryTable)
+    .where(eq(employeeBranchHistoryTable.employeeId, emp.id));
+
+  function getBranchForDate(dateStr: string): number | null {
+    const match = branchHistory.find(h => {
+      if (h.effectiveFrom > dateStr) return false;
+      if (h.effectiveTo && h.effectiveTo < dateStr) return false;
+      return true;
+    });
+    return match ? match.branchId : emp.branchId;
+  }
+
+  const holidayDates = new Set(
+    holidays
+      .filter(h => {
+        if (!h.branchId) return true; // Company-wide holiday
+        const dayBranchId = getBranchForDate(h.date);
+        return h.branchId === dayBranchId;
+      })
+      .map(h => h.date)
+  );
 
   // Determine statuses for every day of the month to handle missing attendance logs
   const totalDays = getDaysInMonth(record.month);
   
-  const dayStatuses: { dateStr: string; status: string; dayName: string }[] = [];
+  const dayStatuses: { dateStr: string; status: string; dayName: string; isPolicyWeeklyOff: boolean }[] = [];
   for (let day = 1; day <= totalDays; day++) {
     const dateStr = `${record.month}-${String(day).padStart(2, "0")}`;
     const [year, m, d] = dateStr.split("-").map(Number);
@@ -114,63 +155,40 @@ async function syncDraftPayroll(
     const dayName = dateObj.toLocaleDateString("en-US", { weekday: "long" });
 
     const att = attendance.find(a => a.date === dateStr);
+    const isWO = isDateWeeklyOff(dateObj, policy);
     
     let status = "absent";
     if (att) {
       status = att.status;
     } else if (holidayDates.has(dateStr)) {
       status = "public_holiday";
-    } else if (isDateWeeklyOff(dateObj, policy)) {
+    } else if (isWO) {
       status = "weekly_off";
     }
 
-    dayStatuses.push({ dateStr, status, dayName });
+    dayStatuses.push({ dateStr, status, dayName, isPolicyWeeklyOff: isWO });
   }
 
   // Handle weekly off forfeiture if enabled
   const enableForfeiture = settings ? !!settings.enableWeeklyOffForfeiture : true;
   if (enableForfeiture) {
-    const initialAbsentCount = dayStatuses.filter(d => d.status === "absent").length;
-    if (initialAbsentCount > 4) {
-      // Over 4 absences: forfeit ALL weekly offs
+    // 1. Check for 2 or more consecutive absences (status === "absent")
+    let hasConsecutiveAbsences = false;
+    for (let i = 0; i < dayStatuses.length - 1; i++) {
+      if (dayStatuses[i].status === "absent" && dayStatuses[i + 1].status === "absent") {
+        hasConsecutiveAbsences = true;
+        break;
+      }
+    }
+
+    // 2. Check if total absences count is > 4
+    const totalAbsences = dayStatuses.filter(d => d.status === "absent").length;
+
+    if (hasConsecutiveAbsences || totalAbsences > 4) {
+      // Forfeit all weekly offs: convert "weekly_off" status to "absent"
       for (const day of dayStatuses) {
         if (day.status === "weekly_off") {
           day.status = "absent";
-        }
-      }
-    } else {
-      // 4 or fewer absences: check week-by-week (Monday to Sunday)
-      for (let i = 0; i < dayStatuses.length; i++) {
-        const current = dayStatuses[i];
-        if (current.status === "weekly_off") {
-          const [year, m, d] = current.dateStr.split("-").map(Number);
-          const targetDate = new Date(year, m - 1, d);
-          
-          let dayOfWeek = targetDate.getDay();
-          if (dayOfWeek === 0) dayOfWeek = 7;
-          
-          const mondayOffset = dayOfWeek - 1;
-          const mondayDate = new Date(targetDate);
-          mondayDate.setDate(targetDate.getDate() - mondayOffset);
-
-          const weekDatesStr: string[] = [];
-          for (let offset = 0; offset < 7; offset++) {
-            const checkDate = new Date(mondayDate);
-            checkDate.setDate(mondayDate.getDate() + offset);
-            
-            const checkYear = checkDate.getFullYear();
-            const checkMonth = String(checkDate.getMonth() + 1).padStart(2, "0");
-            const checkDay = String(checkDate.getDate()).padStart(2, "0");
-            weekDatesStr.push(`${checkYear}-${checkMonth}-${checkDay}`);
-          }
-
-          const hasAbsence = dayStatuses.some(day => 
-            weekDatesStr.includes(day.dateStr) && day.status === "absent"
-          );
-
-          if (hasAbsence) {
-            current.status = "absent";
-          }
         }
       }
     }
@@ -210,12 +228,21 @@ async function syncDraftPayroll(
 
   // Paid days: worked days, paid leaves, weekly offs, and public holidays
   const paidDays = presentDays + weeklyOffDays + holidayDays + leaveDays + 0.5 * halfDayCount;
-  const unpaidDays = totalDays - paidDays;
+  const unpaidDays = Math.max(0, totalDays - paidDays);
 
-  const absentDeductionRaw = dailySalary * unpaidDays;
-  const maxDeduction = basicSalary - (dailySalary * paidDays);
-  const absentDeduction = Number(Math.min(absentDeductionRaw, Math.max(0, maxDeduction)).toFixed(2));
-  const earnedSalary = Number((basicSalary - absentDeduction).toFixed(2));
+  const absentDeduction = Number((dailySalary * unpaidDays).toFixed(2));
+
+  // Calculate extra weekly off pay (if they worked on their weekly off)
+  // Calculate extra weekly off pay based on how many policy weekly offs were actually worked
+  let workedWeeklyOffs = 0;
+  for (const day of dayStatuses) {
+    if (day.isPolicyWeeklyOff && ["present", "late", "overtime", "continue_duty", "half_day"].includes(day.status)) {
+      workedWeeklyOffs++;
+    }
+  }
+  const extraWeeklyOffPay = Number((workedWeeklyOffs * dailySalary).toFixed(2));
+
+  const earnedSalary = Number((basicSalary - absentDeduction + extraWeeklyOffPay).toFixed(2));
   const payableDays = paidDays;
 
   const duties = await db.select().from(continueDutiesTable)
@@ -224,7 +251,7 @@ async function syncDraftPayroll(
       sql`${continueDutiesTable.date}::text like ${record.month + "%"}`
     ));
   const continueDutyDays = duties.length;
-  const continueDutyAmount = Number(duties.reduce((sum, d) => sum + Number(d.amount), 0).toFixed(2));
+  const continueDutyAmount = Number((continueDutyDays * dailySalary).toFixed(2));
 
   const overtimeHours = Number(attendance.reduce((sum, a) => sum + Number(a.overtimeHours ?? 0), 0).toFixed(2));
   const overtimeAmount = Number((overtimeHours * overtimeRate).toFixed(2));
@@ -295,20 +322,40 @@ async function syncDraftPayroll(
   return record;
 }
 
-async function formatPayroll(p: typeof payrollTable.$inferSelect) {
+export async function formatPayroll(
+  p: typeof payrollTable.$inferSelect,
+  preFetchedEmp?: { firstName: string; lastName: string; employeeId: string; department: string; branchId: number | null } | null,
+  preFetchedBranchName?: string | null
+) {
   // Sync if draft
   const record = p.status === "draft" ? await syncDraftPayroll(p) : p;
 
-  const [emp] = await db
-    .select({ firstName: employeesTable.firstName, lastName: employeesTable.lastName, employeeId: employeesTable.employeeId, department: employeesTable.department, branchId: employeesTable.branchId })
-    .from(employeesTable)
-    .where(eq(employeesTable.id, record.employeeId));
+  let emp = preFetchedEmp;
+  let branchName = preFetchedBranchName;
 
-  let branchName: string | null = null;
-  if (emp?.branchId) {
-    const [branch] = await db.select({ name: branchesTable.name }).from(branchesTable).where(eq(branchesTable.id, emp.branchId));
-    branchName = branch?.name ?? null;
+  if (emp === undefined) {
+    const [dbEmp] = await db
+      .select({ firstName: employeesTable.firstName, lastName: employeesTable.lastName, employeeId: employeesTable.employeeId, department: employeesTable.department, branchId: employeesTable.branchId })
+      .from(employeesTable)
+      .where(eq(employeesTable.id, record.employeeId));
+    emp = dbEmp ?? null;
   }
+
+  if (branchName === undefined) {
+    if (emp?.branchId) {
+      const [branch] = await db.select({ name: branchesTable.name }).from(branchesTable).where(eq(branchesTable.id, emp.branchId));
+      branchName = branch?.name ?? null;
+    } else {
+      branchName = null;
+    }
+  }
+
+  const approvedAdvances = await db.select().from(advancesTable)
+    .where(and(eq(advancesTable.employeeId, record.employeeId), eq(advancesTable.status, "approved")));
+  const totalAdvanceBalance = approvedAdvances.reduce((sum, a) => sum + Number(a.remainingBalance), 0);
+  const remainingAdvanceBalance = record.status === "paid" 
+    ? totalAdvanceBalance 
+    : Math.max(0, totalAdvanceBalance - Number(record.advanceDeduction));
 
   return {
     id: record.id,
@@ -337,6 +384,7 @@ async function formatPayroll(p: typeof payrollTable.$inferSelect) {
     grossSalary: Number(record.grossSalary),
     totalDeductions: Number(record.totalDeductions),
     netSalary: Number(record.netSalary),
+    remainingAdvanceBalance,
     status: record.status,
     createdAt: record.createdAt.toISOString(),
   };
@@ -350,11 +398,41 @@ router.get("/payroll", async (req, res): Promise<void> => {
   if (employeeId) conditions.push(eq(payrollTable.employeeId, Number(employeeId)));
   if (status) conditions.push(eq(payrollTable.status, String(status)));
 
-  let query = db.select().from(payrollTable).$dynamic();
-  if (conditions.length > 0) query = query.where(and(...conditions));
-  const records = await query.orderBy(payrollTable.createdAt);
+  let query = db
+    .select({
+      payroll: payrollTable,
+      employeeFirstName: employeesTable.firstName,
+      employeeLastName: employeesTable.lastName,
+      employeeCode: employeesTable.employeeId,
+      department: employeesTable.department,
+      branchId: employeesTable.branchId,
+      branchName: branchesTable.name,
+    })
+    .from(payrollTable)
+    .leftJoin(employeesTable, eq(payrollTable.employeeId, employeesTable.id))
+    .leftJoin(branchesTable, eq(employeesTable.branchId, branchesTable.id))
+    .$dynamic();
 
-  const result = await Promise.all(records.map(formatPayroll));
+  if (conditions.length > 0) query = query.where(and(...conditions));
+  const rows = await query.orderBy(payrollTable.createdAt);
+
+  const result = await Promise.all(
+    rows.map((r) =>
+      formatPayroll(
+        r.payroll,
+        r.employeeFirstName && r.employeeLastName && r.employeeCode && r.department
+          ? {
+              firstName: r.employeeFirstName,
+              lastName: r.employeeLastName,
+              employeeId: r.employeeCode,
+              department: r.department,
+              branchId: r.branchId,
+            }
+          : null,
+        r.branchName
+      )
+    )
+  );
   res.json(result);
 });
 

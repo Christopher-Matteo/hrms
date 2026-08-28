@@ -882,6 +882,48 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LeaveRequest"
+    put:
+      operationId: updateLeaveRequest
+      tags: [leaves]
+      summary: Update a leave request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeaveInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+    delete:
+      operationId: deleteLeaveRequest
+      tags: [leaves]
+      summary: Delete/cancel a leave request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Leave request deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
 
   /leaves/{id}/approve:
     patch:
@@ -1016,6 +1058,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Advance"
+    delete:
+      operationId: deleteAdvance
+      tags: [advances]
+      summary: Delete a salary advance
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: No Content
 
   # CONTINUE DUTY
   /continue-duties:
@@ -2195,6 +2250,12 @@ components:
           type: ["string", "null"]
         approvedById:
           type: ["integer", "null"]
+        informed:
+          type: string
+          enum: [informed, uninformed]
+        salaryCalculate:
+          type: string
+          enum: [calculate, no_calculate]
         createdAt:
           type: string
 
@@ -2212,6 +2273,12 @@ components:
           type: string
         reason:
           type: string
+        informed:
+          type: string
+          enum: [informed, uninformed]
+        salaryCalculate:
+          type: string
+          enum: [calculate, no_calculate]
 
     LeaveDecision:
       type: object
@@ -2264,10 +2331,17 @@ components:
       properties:
         status:
           type: string
+          enum: [pending, approved, rejected, recovered]
         approvedById:
           type: ["integer", "null"]
         remainingBalance:
           type: number
+        amount:
+          type: number
+        reason:
+          type: string
+        date:
+          type: string
 
     ContinueDuty:
       type: object
@@ -2366,6 +2440,8 @@ components:
         totalDeductions:
           type: number
         netSalary:
+          type: number
+        remainingAdvanceBalance:
           type: number
         status:
           type: string

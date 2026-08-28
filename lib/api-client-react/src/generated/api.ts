@@ -43,6 +43,7 @@ import type {
   ContinueDutyInput,
   ContinueDutyUpdate,
   DashboardStats,
+  DeleteLeaveRequest200,
   Department,
   DepartmentDistributionPoint,
   DepartmentInput,
@@ -3546,6 +3547,147 @@ export function useGetLeaveRequest<TData = Awaited<ReturnType<typeof getLeaveReq
 
 
 
+export const getUpdateLeaveRequestUrl = (id: number,) => {
+
+
+
+
+  return `/api/leaves/${id}`
+}
+
+/**
+ * @summary Update a leave request
+ */
+export const updateLeaveRequest = async (id: number,
+    leaveInput?: LeaveInput, options?: RequestInit): Promise<LeaveRequest> => {
+
+  return customFetch<LeaveRequest>(getUpdateLeaveRequestUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(leaveInput)
+  }
+);}
+
+
+
+
+export const getUpdateLeaveRequestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLeaveRequest>>, TError,{id: number;data?: BodyType<LeaveInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateLeaveRequest>>, TError,{id: number;data?: BodyType<LeaveInput>}, TContext> => {
+
+const mutationKey = ['updateLeaveRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateLeaveRequest>>, {id: number;data?: BodyType<LeaveInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateLeaveRequest(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateLeaveRequestMutationResult = NonNullable<Awaited<ReturnType<typeof updateLeaveRequest>>>
+    export type UpdateLeaveRequestMutationBody = BodyType<LeaveInput> | undefined
+    export type UpdateLeaveRequestMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a leave request
+ */
+export const useUpdateLeaveRequest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLeaveRequest>>, TError,{id: number;data?: BodyType<LeaveInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateLeaveRequest>>,
+        TError,
+        {id: number;data?: BodyType<LeaveInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateLeaveRequestMutationOptions(options));
+    }
+
+export const getDeleteLeaveRequestUrl = (id: number,) => {
+
+
+
+
+  return `/api/leaves/${id}`
+}
+
+/**
+ * @summary Delete/cancel a leave request
+ */
+export const deleteLeaveRequest = async (id: number, options?: RequestInit): Promise<DeleteLeaveRequest200> => {
+
+  return customFetch<DeleteLeaveRequest200>(getDeleteLeaveRequestUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteLeaveRequestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteLeaveRequest>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteLeaveRequest>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteLeaveRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteLeaveRequest>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteLeaveRequest(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteLeaveRequestMutationResult = NonNullable<Awaited<ReturnType<typeof deleteLeaveRequest>>>
+
+    export type DeleteLeaveRequestMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete/cancel a leave request
+ */
+export const useDeleteLeaveRequest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteLeaveRequest>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteLeaveRequest>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteLeaveRequestMutationOptions(options));
+    }
+
 export const getApproveLeaveUrl = (id: number,) => {
 
 
@@ -3988,6 +4130,76 @@ export const useUpdateAdvance = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateAdvanceMutationOptions(options));
+    }
+
+export const getDeleteAdvanceUrl = (id: number,) => {
+
+
+
+
+  return `/api/advances/${id}`
+}
+
+/**
+ * @summary Delete a salary advance
+ */
+export const deleteAdvance = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteAdvanceUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteAdvanceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdvance>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAdvance>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteAdvance'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAdvance>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteAdvance(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAdvanceMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAdvance>>>
+
+    export type DeleteAdvanceMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a salary advance
+ */
+export const useDeleteAdvance = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdvance>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAdvance>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteAdvanceMutationOptions(options));
     }
 
 export const getGetContinueDutiesUrl = (params?: GetContinueDutiesParams,) => {

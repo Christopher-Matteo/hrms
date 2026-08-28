@@ -919,6 +919,8 @@ export const GetLeaveRequestsResponseItem = zod.object({
   "reason": zod.string(),
   "managerComment": zod.string().nullish(),
   "approvedById": zod.number().nullish(),
+  "informed": zod.enum(['informed', 'uninformed']).optional(),
+  "salaryCalculate": zod.enum(['calculate', 'no_calculate']).optional(),
   "createdAt": zod.string().optional()
 })
 export const GetLeaveRequestsResponse = zod.array(GetLeaveRequestsResponseItem)
@@ -932,7 +934,9 @@ export const CreateLeaveRequestBody = zod.object({
   "leaveType": zod.string(),
   "startDate": zod.string(),
   "endDate": zod.string(),
-  "reason": zod.string()
+  "reason": zod.string(),
+  "informed": zod.enum(['informed', 'uninformed']).optional(),
+  "salaryCalculate": zod.enum(['calculate', 'no_calculate']).optional()
 })
 
 export const CreateLeaveRequestResponse = zod.object({
@@ -948,6 +952,8 @@ export const CreateLeaveRequestResponse = zod.object({
   "reason": zod.string(),
   "managerComment": zod.string().nullish(),
   "approvedById": zod.number().nullish(),
+  "informed": zod.enum(['informed', 'uninformed']).optional(),
+  "salaryCalculate": zod.enum(['calculate', 'no_calculate']).optional(),
   "createdAt": zod.string().optional()
 })
 
@@ -972,7 +978,57 @@ export const GetLeaveRequestResponse = zod.object({
   "reason": zod.string(),
   "managerComment": zod.string().nullish(),
   "approvedById": zod.number().nullish(),
+  "informed": zod.enum(['informed', 'uninformed']).optional(),
+  "salaryCalculate": zod.enum(['calculate', 'no_calculate']).optional(),
   "createdAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Update a leave request
+ */
+export const UpdateLeaveRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateLeaveRequestBody = zod.object({
+  "employeeId": zod.number(),
+  "leaveType": zod.string(),
+  "startDate": zod.string(),
+  "endDate": zod.string(),
+  "reason": zod.string(),
+  "informed": zod.enum(['informed', 'uninformed']).optional(),
+  "salaryCalculate": zod.enum(['calculate', 'no_calculate']).optional()
+})
+
+export const UpdateLeaveRequestResponse = zod.object({
+  "id": zod.number(),
+  "employeeId": zod.number(),
+  "employeeName": zod.string().nullish(),
+  "employeeCode": zod.string().nullish(),
+  "leaveType": zod.enum(['casual', 'sick', 'earned', 'emergency', 'loss_of_pay', 'maternity', 'paternity']),
+  "startDate": zod.string(),
+  "endDate": zod.string(),
+  "days": zod.number().optional(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "reason": zod.string(),
+  "managerComment": zod.string().nullish(),
+  "approvedById": zod.number().nullish(),
+  "informed": zod.enum(['informed', 'uninformed']).optional(),
+  "salaryCalculate": zod.enum(['calculate', 'no_calculate']).optional(),
+  "createdAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Delete/cancel a leave request
+ */
+export const DeleteLeaveRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteLeaveRequestResponse = zod.object({
+  "success": zod.boolean().optional()
 })
 
 
@@ -1000,6 +1056,8 @@ export const ApproveLeaveResponse = zod.object({
   "reason": zod.string(),
   "managerComment": zod.string().nullish(),
   "approvedById": zod.number().nullish(),
+  "informed": zod.enum(['informed', 'uninformed']).optional(),
+  "salaryCalculate": zod.enum(['calculate', 'no_calculate']).optional(),
   "createdAt": zod.string().optional()
 })
 
@@ -1028,6 +1086,8 @@ export const RejectLeaveResponse = zod.object({
   "reason": zod.string(),
   "managerComment": zod.string().nullish(),
   "approvedById": zod.number().nullish(),
+  "informed": zod.enum(['informed', 'uninformed']).optional(),
+  "salaryCalculate": zod.enum(['calculate', 'no_calculate']).optional(),
   "createdAt": zod.string().optional()
 })
 
@@ -1108,9 +1168,12 @@ export const UpdateAdvanceParams = zod.object({
 })
 
 export const UpdateAdvanceBody = zod.object({
-  "status": zod.string().optional(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'recovered']).optional(),
   "approvedById": zod.number().nullish(),
-  "remainingBalance": zod.number().optional()
+  "remainingBalance": zod.number().optional(),
+  "amount": zod.number().optional(),
+  "reason": zod.string().optional(),
+  "date": zod.string().optional()
 })
 
 export const UpdateAdvanceResponse = zod.object({
@@ -1125,6 +1188,16 @@ export const UpdateAdvanceResponse = zod.object({
   "date": zod.string().optional(),
   "createdAt": zod.string().optional()
 })
+
+
+/**
+ * @summary Delete a salary advance
+ */
+export const DeleteAdvanceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteAdvanceResponse = zod.void()
 
 
 /**
@@ -1257,6 +1330,7 @@ export const GetPayrollRecordsResponseItem = zod.object({
   "grossSalary": zod.number().optional(),
   "totalDeductions": zod.number().optional(),
   "netSalary": zod.number(),
+  "remainingAdvanceBalance": zod.number().optional(),
   "status": zod.enum(['draft', 'approved', 'paid']),
   "manualAttendanceCount": zod.number(),
   "createdAt": zod.string().optional()
@@ -1300,6 +1374,7 @@ export const GeneratePayrollResponseItem = zod.object({
   "grossSalary": zod.number().optional(),
   "totalDeductions": zod.number().optional(),
   "netSalary": zod.number(),
+  "remainingAdvanceBalance": zod.number().optional(),
   "status": zod.enum(['draft', 'approved', 'paid']),
   "manualAttendanceCount": zod.number(),
   "createdAt": zod.string().optional()
@@ -1341,6 +1416,7 @@ export const GetPayrollRecordResponse = zod.object({
   "grossSalary": zod.number().optional(),
   "totalDeductions": zod.number().optional(),
   "netSalary": zod.number(),
+  "remainingAdvanceBalance": zod.number().optional(),
   "status": zod.enum(['draft', 'approved', 'paid']),
   "manualAttendanceCount": zod.number(),
   "createdAt": zod.string().optional()
@@ -1388,6 +1464,7 @@ export const UpdatePayrollRecordResponse = zod.object({
   "grossSalary": zod.number().optional(),
   "totalDeductions": zod.number().optional(),
   "netSalary": zod.number(),
+  "remainingAdvanceBalance": zod.number().optional(),
   "status": zod.enum(['draft', 'approved', 'paid']),
   "manualAttendanceCount": zod.number(),
   "createdAt": zod.string().optional()
@@ -1428,6 +1505,7 @@ export const ApprovePayrollResponse = zod.object({
   "grossSalary": zod.number().optional(),
   "totalDeductions": zod.number().optional(),
   "netSalary": zod.number(),
+  "remainingAdvanceBalance": zod.number().optional(),
   "status": zod.enum(['draft', 'approved', 'paid']),
   "manualAttendanceCount": zod.number(),
   "createdAt": zod.string().optional()

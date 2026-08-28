@@ -83,11 +83,8 @@ async function seed() {
 
   // Weekly Off Policies
   const insertedPolicies = await db.insert(weeklyOffPoliciesTable).values([
-    { name: "Sunday Off", policyType: "one_day_per_week", offDays: '["Sunday"]' },
-    { name: "Saturday & Sunday Off", policyType: "two_days_per_week", offDays: '["Saturday","Sunday"]' },
-    { name: "Rotational Off", policyType: "rotational", offDays: null },
-    { name: "Housekeeping Monthly Off (1 Sunday/Month)", policyType: "one_week_per_month", offDays: '["Sunday"]' },
-    { name: "Standard 4-Week Off (4 Sundays/Month)", policyType: "four_weeks_per_month", offDays: '["Sunday"]' },
+    { name: "month-4", policyType: "four_days_per_month", offDays: '["Sunday"]' },
+    { name: "month-1", policyType: "one_week_per_month", offDays: '["Sunday"]' },
   ]).returning();
 
   // Super Admin User
@@ -106,9 +103,8 @@ async function seed() {
   const porur = insertedBranches.find(b => b.name === "Porur")!;
   const ecrSignature = insertedBranches.find(b => b.name === "ECR Redfox Signature")!;
 
-  const sundayOff = insertedPolicies.find(p => p.name === "Sunday Off")!;
-  const hkPolicy = insertedPolicies.find(p => p.name === "Housekeeping Monthly Off (1 Sunday/Month)")!;
-  const standard4WkPolicy = insertedPolicies.find(p => p.name === "Standard 4-Week Off (4 Sundays/Month)")!;
+  const hkPolicy = insertedPolicies.find(p => p.name === "month-1")!;
+  const standard4WkPolicy = insertedPolicies.find(p => p.name === "month-4")!;
 
   const branchMap: Record<string, number> = {
     "Nungambakkam": nungambakkam.id,
@@ -217,7 +213,7 @@ async function seed() {
       role = "branch_manager";
     }
 
-    const firstFour = emp.firstName.substring(0, 4).toUpperCase().padEnd(4, "X");
+    const firstFour = emp.firstName.substring(0, 4).toUpperCase().padEnd(4, "0");
     const defaultPass = firstFour;
     const passwordHash = hashPassword(defaultPass);
 
@@ -231,8 +227,95 @@ async function seed() {
     });
   }
 
-
-
+  // Seed attendance data for the last 14 days
+  console.log("Seeding attendance records for the last 14 days...");
+  const attendanceToInsert = [];
+  const todayDate = new Date();
+  
+  for (let i = 14; i >= 0; i--) {
+    const d = new Date(todayDate.getTime() - i * 24 * 60 * 60 * 1000);
+    const dateStr = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const dayOfWeek = d.toLocaleDateString("en-US", { weekday: "long" });
+    
+    for (const emp of insertedEmps) {
+      // Determine status
+      let status = "present";
+      let checkIn: string | null = "08:55 AM";
+      let checkOut: string | null = "06:05 PM";
+      let workingHours: string | null = "8.1";
+      let lateMinutes = 0;
+      let overtimeHours: string | null = "0.0";
+      
+      if (dayOfWeek === "Sunday") {
+        status = "weekly_off";
+        checkIn = null;
+        checkOut = null;
+        workingHours = null;
+        lateMinutes = 0;
+        overtimeHours = null;
+      } else {
+        // Add some random variation
+        const rand = Math.random();
+        if (rand < 0.05) {
+          // Absent
+          status = "absent";
+          checkIn = null;
+          checkOut = null;
+          workingHours = null;
+          lateMinutes = 0;
+          overtimeHours = null;
+        } else if (rand < 0.1) {
+          // Late
+          status = "late";
+          checkIn = "09:35 AM";
+          checkOut = "06:00 PM";
+          workingHours = "7.4";
+          lateMinutes = 35;
+          overtimeHours = "0.0";
+        } else if (rand < 0.15) {
+          // Leave
+          status = Math.random() > 0.5 ? "paid_leave" : "sick_leave";
+          checkIn = null;
+          checkOut = null;
+          workingHours = null;
+          lateMinutes = 0;
+          overtimeHours = null;
+        } else if (rand < 0.25) {
+          // Overtime
+          status = "overtime";
+          checkIn = "08:50 AM";
+          checkOut = "08:15 PM";
+          workingHours = "10.4";
+          lateMinutes = 0;
+          overtimeHours = "2.0";
+        }
+      }
+      
+      attendanceToInsert.push({
+        employeeId: emp.id,
+        date: dateStr,
+        status,
+        checkIn,
+        checkOut,
+        workingHours,
+        lateMinutes,
+        overtimeHours,
+        homeBranchId: emp.branchId,
+        attendanceBranchId: emp.branchId,
+        faceVerificationStatus: status !== "absent" && status !== "weekly_off" && !status.endsWith("leave") ? "Verified" : "Not Verified",
+        photoVerified: status !== "absent" && status !== "weekly_off" && !status.endsWith("leave"),
+        source: "KIOSK"
+      });
+    }
+  }
+  
+  if (attendanceToInsert.length > 0) {
+    // Insert in batches of 100 to avoid query parameter limit issues
+    for (let i = 0; i < attendanceToInsert.length; i += 100) {
+      const batch = attendanceToInsert.slice(i, i + 100);
+      await db.insert(attendanceTable).values(batch);
+    }
+  }
 
   // Leave requests
   const existingLeaves = await db.select().from(leavesTable).limit(1);

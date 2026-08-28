@@ -1,11 +1,28 @@
 import { Router, type IRouter } from "express";
-import { HealthCheckResponse } from "@workspace/api-zod";
+import { db, usersTable, employeesTable } from "@workspace/db";
+import { sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-router.get("/healthz", (_req, res) => {
-  const data = HealthCheckResponse.parse({ status: "ok" });
-  res.json(data);
+router.get("/healthz", async (_req, res) => {
+  try {
+    const [result] = await db.select({ count: sql`count(*)` }).from(usersTable);
+    const [empResult] = await db.select({ count: sql`count(*)` }).from(employeesTable);
+    res.json({
+      status: "ok",
+      database: "connected",
+      usersCount: Number(result?.count || 0),
+      employeesCount: Number(empResult?.count || 0),
+      dbUrlExists: !!process.env.DATABASE_URL,
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      status: "error",
+      database: "disconnected",
+      error: err.message,
+      dbUrlExists: !!process.env.DATABASE_URL,
+    });
+  }
 });
 
 export default router;

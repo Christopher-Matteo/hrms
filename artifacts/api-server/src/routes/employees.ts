@@ -1,12 +1,51 @@
 import { Router, type IRouter } from "express";
-import { db, employeesTable, branchesTable, shiftsTable, weeklyOffPoliciesTable, faceEmbeddingsTable, emailVerificationsTable, usersTable } from "@workspace/db";
+import { db, employeesTable, branchesTable, shiftsTable, weeklyOffPoliciesTable, faceEmbeddingsTable, emailVerificationsTable, usersTable, employeeBranchHistoryTable } from "@workspace/db";
 import { eq, and, ilike, sql, desc } from "drizzle-orm";
 import { sendMail } from "../lib/mailer";
 import * as crypto from "crypto";
 
 const router: IRouter = Router();
 
-async function formatEmployee(e: typeof employeesTable.$inferSelect) {
+function formatEmployee(
+  e: typeof employeesTable.$inferSelect,
+  branchName?: string | null,
+  shiftName?: string | null,
+  weeklyOffPolicyName?: string | null
+) {
+  return {
+    id: e.id,
+    employeeId: e.employeeId,
+    firstName: e.firstName,
+    lastName: e.lastName,
+    email: e.email,
+    phone: e.phone,
+    gender: e.gender,
+    address: e.address,
+    emergencyContact: e.emergencyContact,
+    department: e.department,
+    designation: e.designation,
+    branchId: e.branchId,
+    branchName: branchName ?? null,
+    shiftId: e.shiftId,
+    shiftName: shiftName ?? null,
+    weeklyOffPolicyId: e.weeklyOffPolicyId,
+    weeklyOffPolicyName: weeklyOffPolicyName ?? null,
+    joiningDate: e.joiningDate,
+    employmentType: e.employmentType,
+    status: e.status,
+    salary: Number(e.salary),
+    bankName: e.bankName,
+    accountNumber: e.accountNumber,
+    ifscCode: e.ifscCode,
+    upiId: e.upiId,
+    panNumber: e.panNumber,
+    aadhaarNumber: e.aadhaarNumber,
+    photoUrl: e.photoUrl,
+    createdAt: e.createdAt.toISOString(),
+  };
+}
+
+async function fetchAndFormatEmployee(e: typeof employeesTable.$inferSelect) {
   let branchName: string | null = null;
   if (e.branchId) {
     const [branch] = await db.select({ name: branchesTable.name }).from(branchesTable).where(eq(branchesTable.id, e.branchId));
@@ -25,37 +64,7 @@ async function formatEmployee(e: typeof employeesTable.$inferSelect) {
     weeklyOffPolicyName = policy?.name ?? null;
   }
 
-  return {
-    id: e.id,
-    employeeId: e.employeeId,
-    firstName: e.firstName,
-    lastName: e.lastName,
-    email: e.email,
-    phone: e.phone,
-    gender: e.gender,
-    address: e.address,
-    emergencyContact: e.emergencyContact,
-    department: e.department,
-    designation: e.designation,
-    branchId: e.branchId,
-    branchName,
-    shiftId: e.shiftId,
-    shiftName,
-    weeklyOffPolicyId: e.weeklyOffPolicyId,
-    weeklyOffPolicyName,
-    joiningDate: e.joiningDate,
-    employmentType: e.employmentType,
-    status: e.status,
-    salary: Number(e.salary),
-    bankName: e.bankName,
-    accountNumber: e.accountNumber,
-    ifscCode: e.ifscCode,
-    upiId: e.upiId,
-    panNumber: e.panNumber,
-    aadhaarNumber: e.aadhaarNumber,
-    photoUrl: e.photoUrl,
-    createdAt: e.createdAt.toISOString(),
-  };
+  return formatEmployee(e, branchName, shiftName, weeklyOffPolicyName);
 }
 
 async function generateEmployeeId(): Promise<string> {
@@ -69,9 +78,20 @@ async function generateEmployeeId(): Promise<string> {
 }
 
 router.get("/employees", async (req, res): Promise<void> => {
-  const { branchId, departmentId, status, search } = req.query;
+  const { branchId, status, search } = req.query;
 
-  let query = db.select().from(employeesTable).$dynamic();
+  let query = db
+    .select({
+      employee: employeesTable,
+      branchName: branchesTable.name,
+      shiftName: shiftsTable.name,
+      weeklyOffPolicyName: weeklyOffPoliciesTable.name,
+    })
+    .from(employeesTable)
+    .leftJoin(branchesTable, eq(employeesTable.branchId, branchesTable.id))
+    .leftJoin(shiftsTable, eq(employeesTable.shiftId, shiftsTable.id))
+    .leftJoin(weeklyOffPoliciesTable, eq(employeesTable.weeklyOffPolicyId, weeklyOffPoliciesTable.id))
+    .$dynamic();
 
   const conditions = [];
   if (branchId) conditions.push(eq(employeesTable.branchId, Number(branchId)));
@@ -87,8 +107,10 @@ router.get("/employees", async (req, res): Promise<void> => {
     query = query.where(and(...conditions));
   }
 
-  const employees = await query.orderBy(employeesTable.createdAt);
-  const result = await Promise.all(employees.map(formatEmployee));
+  const rows = await query.orderBy(employeesTable.createdAt);
+  const result = rows.map(r =>
+    formatEmployee(r.employee, r.branchName, r.shiftName, r.weeklyOffPolicyName)
+  );
   res.json(result);
 });
 
@@ -269,8 +291,16 @@ router.post("/employees", async (req, res): Promise<void> => {
     })
     .returning();
 
+  // Insert initial branch history
+  await db.insert(employeeBranchHistoryTable).values({
+    employeeId: employee.id,
+    branchId: employee.branchId,
+    effectiveFrom: employee.joiningDate || new Date().toISOString().split("T")[0]!,
+    isCurrent: true,
+  });
+
   // Password auto-generation or manual
-  const firstFour = finalFirstName.substring(0, 4).toUpperCase().padEnd(4, "X");
+  const firstFour = finalFirstName.substring(0, 4).toUpperCase().padEnd(4, "0");
   const defaultPass = firstFour;
   const finalPassword = (password && password.trim().length >= 6) ? password.trim() : defaultPass;
   const passwordHash = crypto.createHash("sha256").update(finalPassword + "hrms_salt_2024").digest("hex");
@@ -288,7 +318,7 @@ router.post("/employees", async (req, res): Promise<void> => {
     employeeId: employee.id,
   });
 
-  const formattedEmployee = await formatEmployee(employee);
+  const formattedEmployee = await fetchAndFormatEmployee(employee);
   res.status(201).json({ ...formattedEmployee, generatedPassword: finalPassword });
 });
 
@@ -301,7 +331,7 @@ router.get("/employees/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Employee not found" });
     return;
   }
-  res.json(await formatEmployee(employee));
+  res.json(await fetchAndFormatEmployee(employee));
 });
 
 router.patch("/employees/:id", async (req, res): Promise<void> => {
@@ -338,13 +368,40 @@ router.patch("/employees/:id", async (req, res): Promise<void> => {
       .where(eq(usersTable.employeeId, id));
   }
 
+  if (updates.branchId !== undefined && Number(updates.branchId) !== existing.branchId) {
+    const todayStr = new Date().toISOString().split("T")[0];
+    const yesterdayObj = new Date();
+    yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+    const yesterdayStr = yesterdayObj.toISOString().split("T")[0];
+
+    // Close the old history entry
+    await db
+      .update(employeeBranchHistoryTable)
+      .set({ isCurrent: false, effectiveTo: yesterdayStr })
+      .where(and(eq(employeeBranchHistoryTable.employeeId, id), eq(employeeBranchHistoryTable.isCurrent, true)));
+
+    // Insert new history entry
+    await db.insert(employeeBranchHistoryTable).values({
+      employeeId: id,
+      branchId: Number(updates.branchId),
+      effectiveFrom: todayStr,
+      isCurrent: true,
+    });
+
+    // Sync branchId in usersTable for login permissions
+    await db
+      .update(usersTable)
+      .set({ branchId: Number(updates.branchId) })
+      .where(eq(usersTable.employeeId, id));
+  }
+
   const [employee] = await db
     .update(employeesTable)
     .set(updates)
     .where(eq(employeesTable.id, id))
     .returning();
 
-  res.json(await formatEmployee(employee));
+  res.json(await fetchAndFormatEmployee(employee));
 });
 
 router.delete("/employees/:id", async (req, res): Promise<void> => {
@@ -397,8 +454,8 @@ router.post("/employees/:id/password", async (req, res): Promise<void> => {
   const id = parseInt(raw, 10);
   const { password } = req.body;
 
-  if (!password || password.length < 6) {
-    res.status(400).json({ error: "Password must be at least 6 characters long." });
+  if (!password || password.length < 4) {
+    res.status(400).json({ error: "Password must be at least 4 characters long." });
     return;
   }
 

@@ -74,19 +74,22 @@ function runCommand(command, description) {
 function main() {
   loadEnv();
 
+  const isWindows = process.platform === 'win32';
+  const pnpm = isWindows ? 'pnpm.cmd' : 'pnpm';
+
   console.log('==========================================================');
   console.log('  Red Fox Hotel HRMS - Local Development Launcher (Node)');
   console.log('==========================================================');
   console.log();
 
   // 1. Install dependencies
-  runCommand('pnpm install', 'Checking and installing dependencies');
+  runCommand(`${pnpm} install`, 'Checking and installing dependencies');
 
   // 2. Push database schema
-  runCommand('pnpm --filter @workspace/db run push', 'Pushing database schema (creating tables)');
+  runCommand(`${pnpm} --filter @workspace/db run push`, 'Pushing database schema (creating tables)');
 
   // 3. Seed database
-  runCommand('pnpm --filter @workspace/api-server run seed', 'Seeding database with default accounts');
+  runCommand(`${pnpm} --filter @workspace/api-server run seed`, 'Seeding database with default accounts');
 
   // 4. Launch frontends and backends
   log('system', 'Launching backend and frontends...');
@@ -94,17 +97,17 @@ function main() {
   const services = [
     {
       name: 'api',
-      command: 'pnpm --filter @workspace/api-server run dev',
+      command: `${pnpm} --filter @workspace/api-server run dev`,
       env: { PORT: '8080' }
     },
     {
       name: 'hrms',
-      command: 'pnpm --filter @workspace/hotel-hrms run dev',
+      command: `${pnpm} --filter @workspace/hotel-hrms run dev`,
       env: { PORT: '18896', BASE_PATH: '/' }
     },
     {
       name: 'portal',
-      command: 'pnpm --filter @workspace/employee-portal run dev',
+      command: `${pnpm} --filter @workspace/employee-portal run dev`,
       env: { PORT: '25852', BASE_PATH: '/' }
     }
   ];

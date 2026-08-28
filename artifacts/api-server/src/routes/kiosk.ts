@@ -282,9 +282,10 @@ router.post("/kiosk/verify-face", async (req, res): Promise<void> => {
     }
   }
 
-  if (!geofenceOk) {
-    res.status(400).json({ error: "GPS Geofence check failed. You must be physically present within 200 meters of the selected Red Fox property." });
-    return;
+  // Soft Bypass: Instead of hard failing with 400 when geofenceOk is false,
+  // we allow the check-in/out to proceed but log gpsVerified: false and show distance.
+  if (!geofenceOk && targetBranchId) {
+    nearestBranchId = targetBranchId;
   }
 
   // 2. Risk Calculation
@@ -340,7 +341,9 @@ router.post("/kiosk/verify-face", async (req, res): Promise<void> => {
     riskScore: String(riskScore),
     faceAttempts: attempts,
     source: authSource,
-    remarks: `Photo captured for verification (Distance from branch: ${minDistance.toFixed(1)}m)`,
+    remarks: geofenceOk 
+      ? `Photo captured for verification (Distance from branch: ${minDistance.toFixed(1)}m)`
+      : `Check-in recorded outside geofence (Distance: ${minDistance !== Infinity ? minDistance.toFixed(1) + 'm' : 'Unknown'})`,
     photoVerified: false,
   };
 

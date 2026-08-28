@@ -4,8 +4,16 @@ import { eq } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-async function formatAnnouncement(a: typeof announcementsTable.$inferSelect) {
-  const [creator] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, a.createdById));
+async function formatAnnouncement(
+  a: typeof announcementsTable.$inferSelect,
+  preFetchedCreatorName?: string | null
+) {
+  let creatorName = preFetchedCreatorName;
+  if (creatorName === undefined) {
+    const [creator] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, a.createdById));
+    creatorName = creator?.name ?? null;
+  }
+
   return {
     id: a.id,
     title: a.title,
@@ -13,14 +21,24 @@ async function formatAnnouncement(a: typeof announcementsTable.$inferSelect) {
     targetRole: a.targetRole,
     branchId: a.branchId,
     createdById: a.createdById,
-    createdByName: creator?.name ?? null,
+    createdByName: creatorName ?? null,
     createdAt: a.createdAt.toISOString(),
   };
 }
 
 router.get("/announcements", async (req, res): Promise<void> => {
-  const announcements = await db.select().from(announcementsTable).orderBy(announcementsTable.createdAt);
-  const result = await Promise.all(announcements.map(formatAnnouncement));
+  const rows = await db
+    .select({
+      announcement: announcementsTable,
+      creatorName: usersTable.name,
+    })
+    .from(announcementsTable)
+    .leftJoin(usersTable, eq(announcementsTable.createdById, usersTable.id))
+    .orderBy(announcementsTable.createdAt);
+
+  const result = await Promise.all(
+    rows.map((r) => formatAnnouncement(r.announcement, r.creatorName))
+  );
   res.json(result.reverse());
 });
 

@@ -5,10 +5,14 @@
  * Red Fox Hotel HRMS & Payroll API
  * OpenAPI spec version: 0.1.0
  */
+import type { AdvanceUpdateStatus } from './advanceUpdateStatus';
 
 export interface AdvanceUpdate {
-  status?: string;
+  status?: AdvanceUpdateStatus;
   /** @nullable */
   approvedById?: number | null;
   remainingBalance?: number;
+  amount?: number;
+  reason?: string;
+  date?: string;
 }

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, employeesTable, attendanceTable, payrollTable, branchesTable, auditLogsTable, holidaysTable, weeklyOffPoliciesTable, shiftsTable } from "@workspace/db";
-import { eq, and, sql, gte } from "drizzle-orm";
+import { db, employeesTable, attendanceTable, payrollTable, branchesTable, auditLogsTable, holidaysTable, weeklyOffPoliciesTable, shiftsTable, shiftScheduleTable } from "@workspace/db";
+import { eq, and, sql, gte, inArray } from "drizzle-orm";
 import { isEmployeeWeeklyOff } from "../lib/weeklyOffHelper";
 
 const router: IRouter = Router();
@@ -52,6 +52,13 @@ router.get("/dashboard/stats", async (req, res): Promise<void> => {
   const policies = await db.select().from(weeklyOffPoliciesTable);
   const shifts = await db.select().from(shiftsTable);
 
+  // Fetch custom schedules for today
+  const todaySchedules = await db
+    .select()
+    .from(shiftScheduleTable)
+    .where(eq(shiftScheduleTable.date, today));
+  const todayScheduleMap = new Map(todaySchedules.map(s => [s.employeeId, s.shiftId]));
+
   let presentToday = 0;
   let absentToday = 0;
   let weeklyOffToday = 0;
@@ -79,8 +86,10 @@ router.get("/dashboard/stats", async (req, res): Promise<void> => {
         } else {
           let isPastWindow = true;
           let startTimeStr = "09:00";
-          if (emp.shiftId) {
-            const sh = shifts.find(s => s.id === emp.shiftId);
+          const customShiftId = todayScheduleMap.get(emp.id);
+          const targetShiftId = customShiftId !== undefined ? customShiftId : emp.shiftId;
+          if (targetShiftId) {
+            const sh = shifts.find(s => s.id === targetShiftId);
             if (sh?.startTime) {
               startTimeStr = sh.startTime;
             }
@@ -146,10 +155,26 @@ router.get("/dashboard/attendance-trend", async (req, res): Promise<void> => {
   const result = [];
   const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
+  const fourteenDaysAgoDate = new Date(Date.now() - 13 * 24 * 60 * 60 * 1000);
+  const startDateStr = fourteenDaysAgoDate.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
+  // Bulk fetch attendance records for the last 14 days
+  const allRecords = await db
+    .select()
+    .from(attendanceTable)
+    .where(sql`${attendanceTable.date} >= ${startDateStr}`);
+
+  // Fetch custom schedules for today
+  const todaySchedules = await db
+    .select()
+    .from(shiftScheduleTable)
+    .where(eq(shiftScheduleTable.date, todayStr));
+  const todayScheduleMap = new Map(todaySchedules.map(s => [s.employeeId, s.shiftId]));
+
   for (let i = 13; i >= 0; i--) {
     const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
     const date = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-    const records = await db.select().from(attendanceTable).where(eq(attendanceTable.date, date));
+    const records = allRecords.filter(r => r.date === date);
 
     const [year, m, day] = date.split("-").map(Number);
     const dateObj = new Date(year, m - 1, day);
@@ -180,8 +205,10 @@ router.get("/dashboard/attendance-trend", async (req, res): Promise<void> => {
 
             if (isToday) {
               let startTimeStr = "09:00";
-              if (emp.shiftId) {
-                const sh = shifts.find(s => s.id === emp.shiftId);
+              const customShiftId = todayScheduleMap.get(emp.id);
+              const targetShiftId = customShiftId !== undefined ? customShiftId : emp.shiftId;
+              if (targetShiftId) {
+                const sh = shifts.find(s => s.id === targetShiftId);
                 if (sh?.startTime) {
                   startTimeStr = sh.startTime;
                 }
@@ -217,23 +244,34 @@ router.get("/dashboard/attendance-trend", async (req, res): Promise<void> => {
 });
 
 router.get("/dashboard/payroll-trend", async (req, res): Promise<void> => {
-  const result = [];
+  const months = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date();
     d.setMonth(d.getMonth() - i);
-    const month = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }).slice(0, 7);
+    months.push(d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }).slice(0, 7));
+  }
 
-    const [total] = await db
-      .select({ total: sql<number>`coalesce(sum(net_salary), 0)`, count: sql<number>`count(*)` })
-      .from(payrollTable)
-      .where(eq(payrollTable.month, month));
+  const totals = await db
+    .select({
+      month: payrollTable.month,
+      total: sql<number>`coalesce(sum(net_salary), 0)`,
+      count: sql<number>`count(*)`
+    })
+    .from(payrollTable)
+    .where(inArray(payrollTable.month, months))
+    .groupBy(payrollTable.month);
 
-    result.push({
+  const totalMap = new Map(totals.map(t => [t.month, t]));
+
+  const result = months.map(month => {
+    const total = totalMap.get(month);
+    return {
       month,
       totalPayroll: Number(total?.total ?? 0),
       employeeCount: Number(total?.count ?? 0),
-    });
-  }
+    };
+  });
+
   res.json(result);
 });
 

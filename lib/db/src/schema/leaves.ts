@@ -13,6 +13,8 @@ export const leavesTable = pgTable("leaves", {
   reason: text("reason").notNull(),
   managerComment: text("manager_comment"),
   approvedById: integer("approved_by_id"),
+  informed: text("informed").notNull().default("informed"), // informed, uninformed
+  salaryCalculate: text("salary_calculate").notNull().default("calculate"), // calculate, no_calculate
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

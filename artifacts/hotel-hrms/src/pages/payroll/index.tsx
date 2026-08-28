@@ -11,7 +11,7 @@ import {
   useGetAuditLogs
 } from "@workspace/api-client-react";
 
-const BASE = (import.meta as any).env.VITE_API_URL ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
+const BASE = (import.meta as any).env.VITE_API_URL && !(import.meta as any).env.VITE_API_URL.includes("railway.app") ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

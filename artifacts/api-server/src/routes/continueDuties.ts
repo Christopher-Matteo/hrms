@@ -4,11 +4,18 @@ import { eq, and, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-async function formatDuty(d: typeof continueDutiesTable.$inferSelect) {
-  const [emp] = await db
-    .select({ firstName: employeesTable.firstName, lastName: employeesTable.lastName })
-    .from(employeesTable)
-    .where(eq(employeesTable.id, d.employeeId));
+async function formatDuty(
+  d: typeof continueDutiesTable.$inferSelect,
+  preFetchedEmp?: { firstName: string; lastName: string } | null
+) {
+  let emp = preFetchedEmp;
+  if (emp === undefined) {
+    const [dbEmp] = await db
+      .select({ firstName: employeesTable.firstName, lastName: employeesTable.lastName })
+      .from(employeesTable)
+      .where(eq(employeesTable.id, d.employeeId));
+    emp = dbEmp ?? null;
+  }
 
   return {
     id: d.id,
@@ -28,11 +35,32 @@ router.get("/continue-duties", async (req, res): Promise<void> => {
   if (employeeId) conditions.push(eq(continueDutiesTable.employeeId, Number(employeeId)));
   if (month) conditions.push(sql`${continueDutiesTable.date}::text like ${String(month) + "%"}`);
 
-  let query = db.select().from(continueDutiesTable).$dynamic();
-  if (conditions.length > 0) query = query.where(and(...conditions));
-  const duties = await query.orderBy(continueDutiesTable.date);
+  let query = db
+    .select({
+      duty: continueDutiesTable,
+      employeeFirstName: employeesTable.firstName,
+      employeeLastName: employeesTable.lastName,
+    })
+    .from(continueDutiesTable)
+    .leftJoin(employeesTable, eq(continueDutiesTable.employeeId, employeesTable.id))
+    .$dynamic();
 
-  const result = await Promise.all(duties.map(formatDuty));
+  if (conditions.length > 0) query = query.where(and(...conditions));
+  const rows = await query.orderBy(continueDutiesTable.date);
+
+  const result = await Promise.all(
+    rows.map((r) =>
+      formatDuty(
+        r.duty,
+        r.employeeFirstName && r.employeeLastName
+          ? {
+              firstName: r.employeeFirstName,
+              lastName: r.employeeLastName,
+            }
+          : null
+      )
+    )
+  );
   res.json(result);
 });
 

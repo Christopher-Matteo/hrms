@@ -2,6 +2,7 @@
   "outputDirectory": "dist/public",
   "cleanUrls": false,
   "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/index.ts" },
     { "source": "/((?!api|assets|models|static|favicon.svg|opengraph.jpg|robots.txt).*)", "destination": "/index.html" }
   ]
 }

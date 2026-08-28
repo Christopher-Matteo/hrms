@@ -1,7 +1,7 @@
 import { useRoute, Link } from "wouter";
 import { useGetPayrollRecord } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-const BASE = (import.meta as any).env.VITE_API_URL ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
+const BASE = (import.meta as any).env.VITE_API_URL && !(import.meta as any).env.VITE_API_URL.includes("railway.app") ? ((import.meta as any).env.VITE_API_URL.replace(/\/+$/, "") + "/api") : "/api";
 import { ArrowLeft, Printer, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -164,7 +164,15 @@ export default function PayslipPage() {
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest border-b pb-2 mb-3">Deductions</p>
             <div className="space-y-1">
               {Number(record.advanceDeduction) > 0 && (
-                <DeductionRow label="Salary Advance Deduction" value={Number(record.advanceDeduction)} />
+                <>
+                  <DeductionRow label="Salary Advance Deduction" value={Number(record.advanceDeduction)} />
+                  {record.remainingAdvanceBalance !== undefined && Number(record.remainingAdvanceBalance) > 0 && (
+                    <div className="pl-4 text-[11px] text-muted-foreground italic flex justify-between">
+                      <span>Remaining Advance Balance:</span>
+                      <span>₹{Number(record.remainingAdvanceBalance).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
+                </>
               )}
               {Number(record.lateDeduction) > 0 && (
                 <DeductionRow label="Late Attendance Deduction" value={Number(record.lateDeduction)} />

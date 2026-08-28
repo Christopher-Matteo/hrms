@@ -495,6 +495,22 @@ export const LeaveRequestStatus = {
   rejected: 'rejected',
 } as const;
 
+export type LeaveRequestInformed = typeof LeaveRequestInformed[keyof typeof LeaveRequestInformed];
+
+
+export const LeaveRequestInformed = {
+  informed: 'informed',
+  uninformed: 'uninformed',
+} as const;
+
+export type LeaveRequestSalaryCalculate = typeof LeaveRequestSalaryCalculate[keyof typeof LeaveRequestSalaryCalculate];
+
+
+export const LeaveRequestSalaryCalculate = {
+  calculate: 'calculate',
+  no_calculate: 'no_calculate',
+} as const;
+
 export interface LeaveRequest {
   id: number;
   employeeId: number;
@@ -512,8 +528,26 @@ export interface LeaveRequest {
   managerComment?: string | null;
   /** @nullable */
   approvedById?: number | null;
+  informed?: LeaveRequestInformed;
+  salaryCalculate?: LeaveRequestSalaryCalculate;
   createdAt?: string;
 }
+
+export type LeaveInputInformed = typeof LeaveInputInformed[keyof typeof LeaveInputInformed];
+
+
+export const LeaveInputInformed = {
+  informed: 'informed',
+  uninformed: 'uninformed',
+} as const;
+
+export type LeaveInputSalaryCalculate = typeof LeaveInputSalaryCalculate[keyof typeof LeaveInputSalaryCalculate];
+
+
+export const LeaveInputSalaryCalculate = {
+  calculate: 'calculate',
+  no_calculate: 'no_calculate',
+} as const;
 
 export interface LeaveInput {
   employeeId: number;
@@ -521,6 +555,8 @@ export interface LeaveInput {
   startDate: string;
   endDate: string;
   reason: string;
+  informed?: LeaveInputInformed;
+  salaryCalculate?: LeaveInputSalaryCalculate;
 }
 
 export interface LeaveDecision {
@@ -559,11 +595,24 @@ export interface AdvanceInput {
   date?: string;
 }
 
+export type AdvanceUpdateStatus = typeof AdvanceUpdateStatus[keyof typeof AdvanceUpdateStatus];
+
+
+export const AdvanceUpdateStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+  recovered: 'recovered',
+} as const;
+
 export interface AdvanceUpdate {
-  status?: string;
+  status?: AdvanceUpdateStatus;
   /** @nullable */
   approvedById?: number | null;
   remainingBalance?: number;
+  amount?: number;
+  reason?: string;
+  date?: string;
 }
 
 export interface ContinueDuty {
@@ -633,6 +682,7 @@ export interface PayrollRecord {
   grossSalary?: number;
   totalDeductions?: number;
   netSalary: number;
+  remainingAdvanceBalance?: number;
   status: PayrollRecordStatus;
   manualAttendanceCount: number;
   createdAt?: string;
@@ -872,6 +922,10 @@ status?: string | null;
  * @nullable
  */
 branchId?: number | null;
+};
+
+export type DeleteLeaveRequest200 = {
+  success?: boolean;
 };
 
 export type GetAdvancesParams = {
