@@ -1,9 +1,9 @@
-import nodemailer from "nodemailer";
 import { logger } from "./logger";
 
-let transporter: nodemailer.Transporter | null = null;
+let transporter: any = null;
 
-async function getTransporter(): Promise<nodemailer.Transporter> {
+async function getTransporter(): Promise<any> {
+  const nodemailer = (globalThis as any).require("nodemailer");
   if (transporter) return transporter;
 
   const host = process.env["SMTP_HOST"];
@@ -71,6 +71,7 @@ export async function sendMail(to: string, subject: string, html: string): Promi
 
     logger.info({ messageId: info.messageId, to }, "Email sent successfully");
 
+    const nodemailer = (globalThis as any).require("nodemailer");
     const previewUrl = nodemailer.getTestMessageUrl(info);
     if (previewUrl) {
       console.log(`\n=============================================================`);
