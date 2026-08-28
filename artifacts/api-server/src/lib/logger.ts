@@ -1,5 +1,3 @@
-import pino from "pino";
-
 const isProduction = process.env.NODE_ENV === "production";
 const isVercel = !!process.env.VERCEL;
 
@@ -27,19 +25,22 @@ class ConsoleLogger {
 
 export const logger = isVercel
   ? (new ConsoleLogger() as any)
-  : pino({
-      level: process.env.LOG_LEVEL ?? "info",
-      redact: [
-        "req.headers.authorization",
-        "req.headers.cookie",
-        "res.headers['set-cookie']",
-      ],
-      ...(isProduction
-        ? {}
-        : {
-            transport: {
-              target: "pino-pretty",
-              options: { colorize: true },
-            },
-          }),
-    });
+  : (() => {
+      const pino = (globalThis as any).require("pino");
+      return pino({
+        level: process.env.LOG_LEVEL ?? "info",
+        redact: [
+          "req.headers.authorization",
+          "req.headers.cookie",
+          "res.headers['set-cookie']",
+        ],
+        ...(isProduction
+          ? {}
+          : {
+              transport: {
+                target: "pino-pretty",
+                options: { colorize: true },
+              },
+            }),
+      });
+    })();
